@@ -1,0 +1,20 @@
+# 忽略 Python 缓存
+__pycache__/
+*.py[cod]
+
+# 忽略模型权重和输出文件
+*.pth
+*.pkl
+*.png
+*.txt
+
+# 忽略配置文件和运行目录
+.idea/
+runs/
+models/
+processed_features/
+config/
+hearingWhatYouCannotSee.iml
+
+# 忽略日志和其他生成文件
+train_log.txt
