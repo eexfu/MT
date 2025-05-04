@@ -169,11 +169,11 @@ class Expts:
             data_in_shuffled = skl.utils.shuffle(data_in)
 
         # get metrics
-        output_metrics, conf_mat, df_preds = utilities.cross_validation_CNN(pipeline, self.folds, data_in_shuffled, label_encoder, self.srp_dict, data_aug=self.data_aug, L=L, res=res, num_classes=num_classes)
+        output_metrics = utilities.cross_validation_CNN(pipeline, self.folds, data_in_shuffled, label_encoder, self.srp_dict, data_aug=self.data_aug, L=L, res=res, num_classes=num_classes)
 
         metrics.print_metrics(output_metrics, self.paper_metrics_only)
 
-        return output_metrics, conf_mat, df_preds
+        return output_metrics
 
     def save_metrics_to_csv(self, save_path, output_metrics, filename="", loc="", L=None, res=None, fmin=None, fmax=None, num_mics=None, geo=None):
         """
@@ -373,10 +373,6 @@ if __name__ == '__main__':
             res = int(match.group(4))
             fmin = int(match.group(5))
             fmax = int(match.group(6))
-            print(L)
-            print(res)
-            print(fmin)
-            print(fmax)
             csv_path = os.path.join(folder_path, filename)
             data = utilities.AudioData(L=L, res=res, freq_range=[fmin, fmax])
             data.read_csv(csv_path=csv_path)
@@ -420,14 +416,15 @@ if __name__ == '__main__':
         folder_path = parsed.root
         filenames = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
         for filename in filenames:
-            pattern = r"_L(\d+)_r(\d+)_f(\d+)-(\d+)"
+            pattern = r"m(\d+)_g(\d+)_L(\d+)_r(\d+)_f(\d+)-(\d+)"
             match = re.search(pattern, filename)
 
-            L = int(match.group(1))
-            res = int(match.group(2))
-            fmin = int(match.group(3))
-            fmax = int(match.group(4))
-            # window_length = int(match.group((5)))
+            m = int(match.group(1))
+            g = match.group(2)
+            L = int(match.group(3))
+            res = int(match.group(4))
+            fmin = int(match.group(5))
+            fmax = int(match.group(6))
             csv_path = os.path.join(folder_path, filename)
             data = utilities.AudioData(L=L, res=res, freq_range=[fmin, fmax])
             data.read_csv(csv_path=csv_path)
@@ -437,9 +434,7 @@ if __name__ == '__main__':
             expts = Expts(data, parsed.output, classifier=classifier, random_state=parsed.seed, data_aug=(not parsed.no_data_aug))
             print(f'--- Cross Validation of csv file: {filename}')
             for loc in parsed.locs_list:
-                output_metrics, conf_mat, df_preds = expts.run_measure_CNN([loc], L, res, num_classes)
-                save_path = os.path.join(parsed.root, rf"result/L{L}_r{res}_f{fmin}-{fmax}_{loc}_predictions.csv")
-                df_preds.to_csv(save_path, index=False)
+                output_metrics = expts.run_measure_CNN([loc], L, res, num_classes)
                 result_entry = {
                     "filename": filename,
                     "location": loc,
@@ -447,7 +442,8 @@ if __name__ == '__main__':
                     "resolution": res,
                     "fmin": fmin,
                     "fmax": fmax,
-                    # "window_length": window_length,
+                    "num_mics": m,
+                    "geo": g,
                     "overall_accuracy_mean": output_metrics["overall_accuracy"][0],
                     "overall_accuracy_std": output_metrics["overall_accuracy"][1],
                     "per_class_accuracy_mean": output_metrics["per_class_accuracy"][0],
