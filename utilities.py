@@ -374,7 +374,7 @@ def cross_validation_CNN(pipeline, n_folds, data, le, srp_dict, data_aug=True, L
         )
 
         # train classifier and get predictions on validation
-        accuracy, C, df_preds = train_and_test_CNN(training_set, validation_set, pipeline, le, srp_dict, data_aug=data_aug, epochs=300)
+        accuracy, C = train_and_test_CNN(training_set, validation_set, pipeline, le, srp_dict, data_aug=data_aug, epochs=300)
 
         # aggregate the metrics
         validation_folds_score.append(accuracy)
@@ -481,6 +481,9 @@ def train_and_test(train_set, test_set, pipeline, le, srp_dict=None, save_cls=Fa
     # fit the classifier and predict on the test set
     pipeline.fit(data_train[0], data_train[1])
     test_predicted = pipeline.predict(data_test[0])
+    svm_model = pipeline.named_steps["estimator"]
+    print("Support vector count:", svm_model.support_vectors_.shape[0])
+    print("Total parameters (approx.):", svm_model.support_vectors_.size)
 
     accuracy_score = skl.metrics.accuracy_score(data_test[1], test_predicted)
 
@@ -559,16 +562,6 @@ def train_and_test_CNN(train_set, test_set, pipeline, le, srp_dict=None, save_cl
     # extract confusion matrix and metrics
     conf_mat = skl.metrics.confusion_matrix(test_data[1], test_predicted, labels=le.transform(le.classes_))
 
-    true_labels = le.inverse_transform(test_data[1])
-    pred_labels = le.inverse_transform(test_predicted)
-    ids = test_set["ID"].values
-
-    df_preds = pd.DataFrame({
-        "ID": ids,
-        "true_label": true_labels,
-        "predicted_label": pred_labels
-    })
-
     if save_cls:
         if out_folder is None:
             save_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'saved_classifier')
@@ -586,7 +579,7 @@ def train_and_test_CNN(train_set, test_set, pipeline, le, srp_dict=None, save_cl
         test_set = test_set.drop_duplicates(subset=["Recording ID"])
         test_set["ID"].to_csv(os.path.join(*[save_dir, save_string + '_test_bags.csv']), index=False, header=True)
 
-    return accuracy_score, conf_mat, df_preds
+    return accuracy_score, conf_mat
 
 
 def makeDirectory(path):

@@ -136,7 +136,7 @@ class CNN_CBAM_L_resolution(nn.Module):
         return out
 
 
-class CNN(nn.Module):
+class HeavyCNN(nn.Module):
     def __init__(self, output_dim: int = 4):
         """
         Args:
@@ -180,6 +180,33 @@ class CNN(nn.Module):
         x = self.dropout(x)
         x = self.fc2(x)
         return x
+
+
+class CNN(nn.Module):
+    def __init__(self, output_dim=4):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=(3, 3), padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(1, 2)),
+
+            nn.Conv2d(16, 32, kernel_size=(3, 3), padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((2, 2))  # 更小特征图
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(32 * 2 * 2, 64),
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            nn.Linear(64, output_dim)
+        )
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = x.view(x.size(0), -1)
+        return self.fc(x)
 
 
 class CNNClassifier:
@@ -276,6 +303,8 @@ class CNNClassifier:
             print("Warning: Best model not set. Using current model state.")
 
         self.model.eval()
+        total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print("Total trainable parameters:", total_params)
         with torch.no_grad():
             logits = self.model(X)
             preds = torch.argmax(logits, dim=1)

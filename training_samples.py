@@ -126,30 +126,6 @@ class Expts:
 
         metrics.print_metrics(all_metrics, self.paper_metrics_only)
 
-    def run_measure(self, locs_in=["SAB"]):
-
-        print(" \n\n--- Cross Validation for locations: {}\n".format(locs_in))
-
-        locations = utilities.get_locations(locs_in)
-
-        data_in = self.data.get_data()
-        data_in = data_in[data_in["Environment"].isin(locations)]
-
-        label_encoder, pipeline = utilities.prepare_skl_interface(data_in, self.classifier)
-
-        # shuffle with random seed if specified
-        if self.random_state is not None:
-            data_in_shuffled = skl.utils.shuffle(data_in, random_state=self.random_state)
-        else:
-            data_in_shuffled = skl.utils.shuffle(data_in)
-
-        # get metrics
-        output_metrics = utilities.cross_validation(pipeline, self.folds, data_in_shuffled, label_encoder, self.srp_dict, data_aug=self.data_aug)
-
-        metrics.print_metrics(output_metrics, self.paper_metrics_only)
-
-        return output_metrics
-
 
     def run_measure_CNN(self, locs_in=["SAB"], L=2, res=240, num_classes=4):
 
@@ -172,7 +148,6 @@ class Expts:
         output_metrics = utilities.cross_validation_CNN(pipeline, self.folds, data_in_shuffled, label_encoder, self.srp_dict, data_aug=self.data_aug, L=L, res=res, num_classes=num_classes)
 
         metrics.print_metrics(output_metrics, self.paper_metrics_only)
-
         return output_metrics
 
 
@@ -319,7 +294,7 @@ if __name__ == '__main__':
                                     window_length=window_length_val,
                                     data_df_save_path=save_path
                                 )
-                                data.random_chose_mic(mics, save_path=parsed.save_path, filename=f"extracted_features_m{mics}_g0_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.png")
+                                data.random_chose_mic(mics, save_path=parsed.save_path, filename=f"extracted_features_m{mics}_g0_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}_w{window_length_val}.png")
                                 data.extract_data(data_path=parsed.input, save=True)
         else:
             print("Didn't do microphone array.")
@@ -348,7 +323,7 @@ if __name__ == '__main__':
                                     window_length=window_length_val,
                                     data_df_save_path=save_path
                                 )
-                                data.select_geometry(shape_name=g, save_path=parsed.save_path, filename=f"extracted_features_m0_g{g}_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.png")
+                                data.select_geometry(shape_name=g, save_path=parsed.save_path, filename=f"extracted_features_m0_g{g}_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}_w{window_length_val}.png")
                                 data.extract_data(data_path=parsed.input, save=True)
         else:
             print("Didn't do default geo.")
@@ -372,7 +347,7 @@ if __name__ == '__main__':
             csv_path = os.path.join(folder_path, filename)
             data = utilities.AudioData(L=L, res=res, freq_range=[fmin, fmax])
             data.read_csv(csv_path=csv_path)
-            classifier = SVC(kernel='linear', C=parsed.C, random_state=parsed.seed, probability=True)
+            classifier = SVC(kernel='rbf', C=parsed.C, random_state=parsed.seed, probability=True)
             expts = Expts(data, parsed.output, classifier=classifier, random_state=parsed.seed, data_aug=(not parsed.no_data_aug))
             for loc in parsed.locs_list:
                 output_metrics = expts.run_cross_validation([loc])
