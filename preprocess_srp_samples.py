@@ -6,7 +6,7 @@ from getFeature import extract_srp_phat_features
 
 # 路径
 dataset_path = r'C:\temp\KU Leuven\Master\Master Thesis\Database\ovad\dataset'
-output_dir = 'processed_features'
+output_dir = 'processed_features_L4'
 os.makedirs(output_dir, exist_ok=True)
 
 metadata = []

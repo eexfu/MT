@@ -42,9 +42,8 @@ def getPCPrecision(C):
 
 
 def print_metrics(metrics_dict, paper_metrics_only=False):
-    
     if paper_metrics_only:
-        paper_metrics = ["overall_accuracy", "per_class_iou"]
+        paper_metrics = ["overall_accuracy", "per_class_iou", "conf_mat"]
     else:
         paper_metrics = metrics_dict.keys()
 
@@ -53,16 +52,19 @@ def print_metrics(metrics_dict, paper_metrics_only=False):
     print(" --- Metrics ---\n")
     print("Format: (mean) +/- (std)\n")
     for key, value in metrics_dict.items():
-        if key in paper_metrics:
-            print(" Metric: {}".format(key))
-            
-            # for per class metrics, specify the class to which they belong
-            if "per_class" in key:
-                print(" Values: ")
-                for mean, std, clss in zip(value[0], value[1], metric_order):
-                    print("\t{}: {} +/- {}".format(clss, mean, std))
+        if key not in paper_metrics:
+            continue
 
-            else:     
-                print(" Value: {} +/- {}".format(value[0], value[1]))
-            
-            print(" ==== ")
+        print(" Metric: {}".format(key))
+
+        if key == "conf_mat":
+            print(" Confusion matrix:\n", value)
+            # plot_confusion_matrix(value)
+        elif "per_class" in key:
+            print(" Values: ")
+            for mean, std, clss in zip(value[0], value[1], metric_order):
+                print("\t{}: {:.3f} +/- {:.3f}".format(clss, mean, std))
+        else:
+            print(" Value: {:.3f} +/- {:.3f}".format(value[0], value[1]))
+
+        print(" ====\n")
