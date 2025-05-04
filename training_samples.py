@@ -175,42 +175,6 @@ class Expts:
 
         return output_metrics
 
-    def save_metrics_to_csv(self, save_path, output_metrics, filename="", loc="", L=None, res=None, fmin=None, fmax=None, num_mics=None, geo=None):
-        """
-        将评估指标保存为CSV文件。
-
-        参数:
-            save_path (str): 要保存的CSV文件路径。
-            output_metrics (dict): cross_validation输出的metrics_dict。
-            其他参数: 额外信息，比如文件名、位置、参数设置等。
-        """
-
-        result_entry = {
-            "filename": filename,
-            "location": loc,
-            "L": L,
-            "resolution": res,
-            "fmin": fmin,
-            "fmax": fmax,
-            "num_mics": num_mics,
-            "geo": geo,
-            "overall_accuracy_mean": output_metrics["overall_accuracy"][0],
-            "overall_accuracy_std": output_metrics["overall_accuracy"][1],
-            "per_class_accuracy_mean": output_metrics["per_class_accuracy"][0].tolist(),
-            "per_class_accuracy_std": output_metrics["per_class_accuracy"][1].tolist(),
-            "per_class_precision_mean": output_metrics["per_class_precision"][0].tolist(),
-            "per_class_precision_std": output_metrics["per_class_precision"][1].tolist(),
-            "per_class_recall_mean": output_metrics["per_class_recall"][0].tolist(),
-            "per_class_recall_std": output_metrics["per_class_recall"][1].tolist(),
-            "per_class_iou_mean": output_metrics["per_class_iou"][0].tolist(),
-            "per_class_iou_std": output_metrics["per_class_iou"][1].tolist(),
-            "conf_mat": output_metrics["conf_mat"].tolist()  # 保存为列表（CSV里是字符串）
-        }
-
-        summary_df = pd.DataFrame([result_entry])
-        summary_df.to_csv(save_path, index=False)
-        print(f"Saved metrics to {save_path}")
-
 
 def parseArgs():
     class ExtractorArgsParser(argparse.ArgumentParser):

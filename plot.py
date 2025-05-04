@@ -488,7 +488,7 @@ def plot_confusion_matrix_from_csv(csv_path, title="Confusion Matrix", save_path
     plt.close()
 
 
-def plot_confusion_matrices(df, save_dir="./figures/conf_matrices"):
+def plot_confusion_matrices(df, save_dir="./figures/conf_matrices", labels=["front", "left", "none", "right"]):
     """
     对 DataFrame 中每一行的混淆矩阵绘图并保存。
 
@@ -497,7 +497,7 @@ def plot_confusion_matrices(df, save_dir="./figures/conf_matrices"):
         save_dir (str): 输出图像保存的文件夹路径。
     """
     os.makedirs(save_dir, exist_ok=True)
-    class_names = ["front", "left", "none", "right"]
+    class_names = labels
 
     for idx, row in df.iterrows():
         conf_raw = row["conf_mat"]
@@ -554,7 +554,7 @@ if __name__ == '__main__':
     # cnn_mydata_df = loadCSVData(path="./preprocess_mydata/summary_metrics_mydata_window_length.csv")
     #
     test_df = loadCSVData(path="./result/summary_results_cross_val.csv")
-    plot_confusion_matrices(test_df)
+    plot_confusion_matrices(test_df, labels=["front", "left", "none", "right"])
     #
     # draw_model_comparison_bar(cnn_df, svm_df, filename="barplot_cnn_vs_svm.png", average=False, L=2, resolution=240, fmax=1500, fmin=50, location=None)
     # draw_model_comparison_bar(cnn_df, svm_df, filename="barplot_cnn_vs_svm_average_within_freq.png", average=False, L=None, resolution=None, fmax=1500, fmin=50, location=None)

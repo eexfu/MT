@@ -383,10 +383,11 @@ def cross_validation_CNN(pipeline, n_folds, data, le, srp_dict, data_aug=True, L
                     "per_class_accuracy": (np.mean(per_class_acc, axis=0), np.std(per_class_acc, axis=0)),
                     "per_class_precision": (np.mean(per_class_prec, axis=0), np.std(per_class_prec, axis=0)),
                     "per_class_recall": (np.mean(per_class_rec, axis=0), np.std(per_class_rec, axis=0)),
-                    "per_class_iou": (np.mean(per_class_iou, axis=0), np.std(per_class_iou, axis=0))}
+                    "per_class_iou": (np.mean(per_class_iou, axis=0), np.std(per_class_iou, axis=0)),
+                    "conf_mat": CO}
 
 
-    return metrics_dict, C, df_preds
+    return metrics_dict
 
 
 def do_data_augmentation(data_in, res, nsegs):
