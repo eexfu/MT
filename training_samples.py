@@ -327,7 +327,7 @@ if __name__ == '__main__':
                                 freq_range=[fmin_val, fmax_val],
                                 data_df_save_path=save_path
                             )
-                            data.random_chose_mic(mics, filename=f"extracted_features_m{mics}_g0_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.png")
+                            data.random_chose_mic(mics, save_path=parsed.save_path, filename=f"extracted_features_m{mics}_g0_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.png")
                             data.extract_data(data_path=parsed.input, save=True)
         else:
             print("Didn't do microphone array.")
@@ -353,7 +353,7 @@ if __name__ == '__main__':
                                 freq_range=[fmin_val, fmax_val],
                                 data_df_save_path=save_path
                             )
-                            data.select_geometry(shape_name=g, filename=f"extracted_features_m0_g{g}_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.png")
+                            data.select_geometry(shape_name=g, save_path=parsed.save_path, filename=f"extracted_features_m0_g{g}_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.png")
                             data.extract_data(data_path=parsed.input, save=True)
         else:
             print("Didn't do default geo.")

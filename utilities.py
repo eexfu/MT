@@ -42,7 +42,7 @@ class AudioData:
         self.data = None
         self.data_df_save_path = data_df_save_path
 
-    def random_chose_mic(self, num, filename):
+    def random_chose_mic(self, num, save_path, filename):
         global selected_indices
         """
         随机选择 num 个麦克风，并更新 self.mic_array
@@ -55,10 +55,10 @@ class AudioData:
         print(selected_indices)
         print(f"已随机选择 {num} 个麦克风，更新后的麦克风阵列：")
         print(self.mic_array)
-        self.plot_mic_array(filename)
+        self.plot_mic_array(save_path, filename)
 
 
-    def select_geometry(self, shape_name, filename):
+    def select_geometry(self, shape_name, save_path, filename):
         """
         选择特定几何形状的麦克风子集。
 
@@ -113,9 +113,9 @@ class AudioData:
 
         print(f"✅ 选择的形状: '{shape_name}'")
         print(f"麦克风索引: {selected_indices}")
-        self.plot_mic_array(filename)
+        self.plot_mic_array(save_path, filename)
 
-    def plot_mic_array(self, filename):
+    def plot_mic_array(self, save_path, filename):
         global all_mic_array
         plt.figure(figsize=(8, 6))
         all_mic_array = loadMicarray()
@@ -136,7 +136,17 @@ class AudioData:
         plt.title("Microphone Array Layout")
         plt.grid(True)
         plt.legend()
-        plt.show()
+        # 创建目录（如果不存在）
+        os.makedirs(save_path, exist_ok=True)
+
+        # 拼接完整保存路径
+        full_path = os.path.join(save_path, filename)
+
+        # 保存图像为文件
+        plt.savefig(full_path, dpi=300, bbox_inches='tight')
+        print(f"✅ Mic array plot saved to {full_path}")
+
+        plt.close()
 
     def extract_data(self, data_path, save=False):
         label_data = pd.read_csv(os.path.join(data_path, 'SampleLog.csv'))
