@@ -392,9 +392,10 @@ if __name__ == '__main__':
                 results.append(result_entry)
 
         # 保存为一个总表
-        os.makedirs("./result", exist_ok=True)
+        save_path = os.path.join(parsed.root, "result/summary_metrics_CNN.csv")
+        os.makedirs(save_path, exist_ok=True)
         summary_df = pd.DataFrame(results)
-        summary_df.to_csv("./result/summary_results_cross_val.csv", index=False)
+        summary_df.to_csv(save_path, index=False)
         print("✅ Saved summary_results_cross_val.csv")
 
 
