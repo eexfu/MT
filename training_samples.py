@@ -245,6 +245,7 @@ def parseArgs():
     parser.add_argument('--res', nargs="+", type=int, default=30, help='Resolution of segments')
     parser.add_argument('--fmin', nargs="+", type=int, default=50, help='Min Frequency')
     parser.add_argument('--fmax', nargs="+", type=int, default=1500, help='Max Frequency')
+    parser.add_argument('--window_length', nargs="+", type=int, default=1000, help='The length of window(ms)')
 
 
     if len(sys.argv)==1:
@@ -279,6 +280,7 @@ if __name__ == '__main__':
     parsed.res = to_int_list(parsed.res)
     parsed.fmin = to_int_list(parsed.fmin)
     parsed.fmax = to_int_list(parsed.fmax)
+    parsed.window_length = to_int_list(parsed.window_length)
     if parsed.num_mics is not None:
         parsed.num_mics = to_int_list(parsed.num_mics)
     if parsed.geo is not None:
@@ -297,25 +299,28 @@ if __name__ == '__main__':
             for i in range(len(parsed.L)):
                 for j in range(len(parsed.res)):
                     for k in range(len(parsed.fmin)):
-                        for mics in parsed.num_mics:
-                            L_val = parsed.L[i]
-                            res_val = parsed.res[j]
-                            fmin_val = parsed.fmin[k]
-                            fmax_val = parsed.fmax[k]
+                        for l in range(len(parsed.window_length)):
+                            for mics in parsed.num_mics:
+                                L_val = parsed.L[i]
+                                res_val = parsed.res[j]
+                                fmin_val = parsed.fmin[k]
+                                fmax_val = parsed.fmax[k]
+                                window_length_val = parsed.window_length[l]
 
-                            save_path = os.path.join(
-                                parsed.save_path,
-                                f"extracted_features_m{mics}_g0_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.csv"
-                            )
+                                save_path = os.path.join(
+                                    parsed.save_path,
+                                    f"extracted_features_m{mics}_g0_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.csv"
+                                )
 
-                            data = utilities.AudioData(
-                                L=L_val,
-                                res=res_val,
-                                freq_range=[fmin_val, fmax_val],
-                                data_df_save_path=save_path
-                            )
-                            data.random_chose_mic(mics, save_path=parsed.save_path, filename=f"extracted_features_m{mics}_g0_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.png")
-                            data.extract_data(data_path=parsed.input, save=True)
+                                data = utilities.AudioData(
+                                    L=L_val,
+                                    res=res_val,
+                                    freq_range=[fmin_val, fmax_val],
+                                    window_length=window_length_val,
+                                    data_df_save_path=save_path
+                                )
+                                data.random_chose_mic(mics, save_path=parsed.save_path, filename=f"extracted_features_m{mics}_g0_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.png")
+                                data.extract_data(data_path=parsed.input, save=True)
         else:
             print("Didn't do microphone array.")
 
@@ -323,25 +328,28 @@ if __name__ == '__main__':
             for i in range(len(parsed.L)):
                 for j in range(len(parsed.res)):
                     for k in range(len(parsed.fmin)):
-                        for g in parsed.geo:
-                            L_val = parsed.L[i]
-                            res_val = parsed.res[j]
-                            fmin_val = parsed.fmin[k]
-                            fmax_val = parsed.fmax[k]
+                        for l in range(len(parsed.window_length)):
+                            for g in parsed.geo:
+                                L_val = parsed.L[i]
+                                res_val = parsed.res[j]
+                                fmin_val = parsed.fmin[k]
+                                fmax_val = parsed.fmax[k]
+                                window_length_val = parsed.window_length[l]
 
-                            save_path = os.path.join(
-                                parsed.save_path,
-                                f"extracted_features_m0_g{g}_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.csv"
-                            )
+                                save_path = os.path.join(
+                                    parsed.save_path,
+                                    f"extracted_features_m0_g{g}_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.csv"
+                                )
 
-                            data = utilities.AudioData(
-                                L=L_val,
-                                res=res_val,
-                                freq_range=[fmin_val, fmax_val],
-                                data_df_save_path=save_path
-                            )
-                            data.select_geometry(shape_name=g, save_path=parsed.save_path, filename=f"extracted_features_m0_g{g}_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.png")
-                            data.extract_data(data_path=parsed.input, save=True)
+                                data = utilities.AudioData(
+                                    L=L_val,
+                                    res=res_val,
+                                    freq_range=[fmin_val, fmax_val],
+                                    window_length=window_length_val,
+                                    data_df_save_path=save_path
+                                )
+                                data.select_geometry(shape_name=g, save_path=parsed.save_path, filename=f"extracted_features_m0_g{g}_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.png")
+                                data.extract_data(data_path=parsed.input, save=True)
         else:
             print("Didn't do default geo.")
 
@@ -393,7 +401,6 @@ if __name__ == '__main__':
 
         # 保存为一个总表
         save_path = os.path.join(parsed.root, "result/summary_metrics_CNN.csv")
-        os.makedirs(save_path, exist_ok=True)
         summary_df = pd.DataFrame(results)
         summary_df.to_csv(save_path, index=False)
         print("✅ Saved summary_results_cross_val.csv")
@@ -447,5 +454,6 @@ if __name__ == '__main__':
                 results.append(result_entry)
         summary_df = pd.DataFrame(results)
         save_path = os.path.join(parsed.root, "result/summary_metrics_CNN.csv")
+        os.makedirs(os.path.join(parsed.root, "result"), exist_ok=True)
         summary_df.to_csv(save_path, index=False)
         print("Created summary_metrics_CNN.csv!")

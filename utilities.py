@@ -26,7 +26,7 @@ from model import CNNClassifier
 
 class AudioData:
 
-    def __init__(self, res=30, freq_range=[50,1500], nfft=2*256, L=2, mic_array=None, data_df_save_path='./config/extracted_features.csv'):
+    def __init__(self, res=30, freq_range=[50,1500], nfft=2*256, L=2, window_length=1000, mic_array=None, data_df_save_path='./config/extracted_features.csv'):
 
         # set parameters for feature extraction
         self.mic_array = mic_array
@@ -38,6 +38,7 @@ class AudioData:
         self.freq_range = freq_range 
         self.nfft = nfft
         self.L = L
+        self.window_length = window_length
 
         self.data = None
         self.data_df_save_path = data_df_save_path
@@ -164,15 +165,24 @@ class AudioData:
             sample_rate, data = wavf.read(sample_path)
             selected_data = data[:, selected_indices]  # 通道选择
 
-            feature = extractSRPFeature(selected_data, sample_rate, self.mic_array,
-                                        self.resolution, self.freq_range, self.nfft, self.L)
+            window_len = self.window_length
+            window_samples = int(sample_rate * (window_len / 1000.0))
+            total_samples = selected_data.shape[0]
+            num_windows = total_samples // window_samples
 
-            if data_columns is None:
-                data_columns = ['feat' + str(i) for i in range(feature.shape[0])] + list(label_data.columns)
+            for w in range(num_windows):
+                start = w * window_samples
+                end = start + window_samples
+                window_data = selected_data[start:end]
+                feature = extractSRPFeature(window_data, sample_rate, self.mic_array,
+                                            self.resolution, self.freq_range, self.nfft, self.L)
 
-            row_values = np.concatenate((feature, row.to_numpy()))
-            rows_list.append(row_values)
-            num_samples[row["Class"]] += 1
+                if data_columns is None:
+                    data_columns = ['feat' + str(i) for i in range(feature.shape[0])] + list(label_data.columns) + ['window_id']
+
+                row_values = np.concatenate((feature, row.to_numpy(), [w]))
+                rows_list.append(row_values)
+                num_samples[row["Class"]] += 1
 
         # 一次性创建 DataFrame（更快）
         extracted_data = pd.DataFrame(rows_list, columns=data_columns)
