@@ -241,10 +241,10 @@ def parseArgs():
     parser.add_argument('--C',  default=1, type=float, help='Classifier regularization')
     parser.add_argument('--no_data_aug', action='store_true', help='Disable data augmentation')
     parser.add_argument('--seed', default=0, type=int, help='Random seed')
-    parser.add_argument('--L',  nargs="+", type=int, default=[2, 4, 8], help='Number of segments')
-    parser.add_argument('--res', nargs="+", type=int, default=[30, 120, 240], help='Resolution of segments')
-    parser.add_argument('--fmin', nargs="+", type=int, default=[20, 50, 1500], help='Min Frequency')
-    parser.add_argument('--fmax', nargs="+", type=int, default=[50, 1500, 3000], help='Max Frequency')
+    parser.add_argument('--L',  nargs="+", type=int, default=2, help='Number of segments')
+    parser.add_argument('--res', nargs="+", type=int, default=30, help='Resolution of segments')
+    parser.add_argument('--fmin', nargs="+", type=int, default=50, help='Min Frequency')
+    parser.add_argument('--fmax', nargs="+", type=int, default=1500, help='Max Frequency')
 
 
     if len(sys.argv)==1:
@@ -262,7 +262,30 @@ def parseArgs():
 if __name__ == '__main__':
     parsed = parseArgs()
 
-    # TODO: len(fmin) == len(fmax)?
+    if parsed.num_mics is None and parsed.geo is None:
+        parsed.num_mics = 56
+
+    def to_int_list(x):
+        if isinstance(x, list):
+            return [int(i) for i in x]
+        elif isinstance(x, str):
+            return [int(x)]
+        elif isinstance(x, int):
+            return [x]
+        else:
+            raise ValueError(f"Unsupported type for argument: {type(x)}")
+
+    parsed.L = to_int_list(parsed.L)
+    parsed.res = to_int_list(parsed.res)
+    parsed.fmin = to_int_list(parsed.fmin)
+    parsed.fmax = to_int_list(parsed.fmax)
+    if parsed.num_mics is not None:
+        parsed.num_mics = to_int_list(parsed.num_mics)
+    if parsed.geo is not None:
+        parsed.geo = to_int_list(parsed.geo)
+
+    if len(parsed.fmin) != len(parsed.fmax):
+        raise ValueError("Please make suer the length of fmin and fmax are the same")
 
     if parsed.extract_feats:
         if parsed.input is None:
