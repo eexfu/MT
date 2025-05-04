@@ -309,7 +309,7 @@ if __name__ == '__main__':
 
                                 save_path = os.path.join(
                                     parsed.save_path,
-                                    f"extracted_features_m{mics}_g0_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.csv"
+                                    f"extracted_features_m{mics}_g0_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}_w{window_length_val}.csv"
                                 )
 
                                 data = utilities.AudioData(
@@ -338,7 +338,7 @@ if __name__ == '__main__':
 
                                 save_path = os.path.join(
                                     parsed.save_path,
-                                    f"extracted_features_m0_g{g}_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}.csv"
+                                    f"extracted_features_m0_g{g}_L{L_val}_r{res_val}_f{fmin_val}-{fmax_val}_w{window_length_val}.csv"
                                 )
 
                                 data = utilities.AudioData(
@@ -359,7 +359,7 @@ if __name__ == '__main__':
         filenames = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
         results = []
         for filename in filenames:
-            pattern = r"m(\d+)_g(\d+)_L(\d+)_r(\d+)_f(\d+)-(\d+)"
+            pattern = r"m(\d+)_g(\d+)_L(\d+)_r(\d+)_f(\d+)-(\d+)_w(\d+)"
             match = re.search(pattern, filename)
 
             m = int(match.group(1))
@@ -368,6 +368,7 @@ if __name__ == '__main__':
             res = int(match.group(4))
             fmin = int(match.group(5))
             fmax = int(match.group(6))
+            window_length = int(match.group(7))
             csv_path = os.path.join(folder_path, filename)
             data = utilities.AudioData(L=L, res=res, freq_range=[fmin, fmax])
             data.read_csv(csv_path=csv_path)
@@ -384,6 +385,7 @@ if __name__ == '__main__':
                     "fmax": fmax,
                     "num_mics": m,
                     "geo": g,
+                    "window_length": window_length,
                     "overall_accuracy_mean": output_metrics["overall_accuracy"][0],
                     "overall_accuracy_std": output_metrics["overall_accuracy"][1],
                     "per_class_accuracy_mean": output_metrics["per_class_accuracy"][0].tolist(),
@@ -400,10 +402,10 @@ if __name__ == '__main__':
                 results.append(result_entry)
 
         # 保存为一个总表
-        save_path = os.path.join(parsed.root, "result/summary_metrics_CNN.csv")
+        save_path = os.path.join(parsed.root, "result/summary_results_SVM.csv")
         summary_df = pd.DataFrame(results)
         summary_df.to_csv(save_path, index=False)
-        print("✅ Saved summary_results_cross_val.csv")
+        print("✅ Saved summary_results_SVM.csv")
 
 
     if parsed.run_measure_CNN:
@@ -411,7 +413,7 @@ if __name__ == '__main__':
         folder_path = parsed.root
         filenames = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
         for filename in filenames:
-            pattern = r"m(\d+)_g(\d+)_L(\d+)_r(\d+)_f(\d+)-(\d+)"
+            pattern = r"m(\d+)_g(\d+)_L(\d+)_r(\d+)_f(\d+)-(\d+)_w(\d+)"
             match = re.search(pattern, filename)
 
             m = int(match.group(1))
@@ -420,6 +422,7 @@ if __name__ == '__main__':
             res = int(match.group(4))
             fmin = int(match.group(5))
             fmax = int(match.group(6))
+            window_length = int(match.group(7))
             csv_path = os.path.join(folder_path, filename)
             data = utilities.AudioData(L=L, res=res, freq_range=[fmin, fmax])
             data.read_csv(csv_path=csv_path)
@@ -439,6 +442,7 @@ if __name__ == '__main__':
                     "fmax": fmax,
                     "num_mics": m,
                     "geo": g,
+                    "window_length": window_length,
                     "overall_accuracy_mean": output_metrics["overall_accuracy"][0],
                     "overall_accuracy_std": output_metrics["overall_accuracy"][1],
                     "per_class_accuracy_mean": output_metrics["per_class_accuracy"][0],
