@@ -190,7 +190,7 @@ def parseArgs():
     parser.add_argument('--output', dest='output', default=None, help='Output folder to store the saved classifier.')
 
     parser.add_argument('--num_mics', nargs="+", type=int, default=None, help='Number of microphones to randomly choose')
-    parser.add_argument("--geo", nargs="+", type=int, default=None, help="the geometry of microphone array")
+    parser.add_argument("--geo", nargs="+", type=str, default=None, help="the geometry of microphone array")
 
     parser.add_argument('--extract_feats', dest='extract_feats', action='store_true',
                         help='If specified, features are extracted rather than read from a csv file stored in ./config folder')
@@ -209,6 +209,7 @@ def parseArgs():
 
     parser.add_argument('--run_measure', action='store_true', help='Train a classifier on dataset with different parameter')
     parser.add_argument('--run_measure_CNN', action='store_true', help='Train a CNN classifier on dataset with different parameter')
+    parser.add_argument('--run_learning_curve', action='store_true', help='Run learning curve experiment.')
     parser.add_argument('--test_cuda', action='store_true', help='Test cuda')
     parser.add_argument('--root',  default=None, help='Path to samples')
 
@@ -259,7 +260,7 @@ if __name__ == '__main__':
     if parsed.num_mics is not None:
         parsed.num_mics = to_int_list(parsed.num_mics)
     if parsed.geo is not None:
-        parsed.geo = to_int_list(parsed.geo)
+        parsed.geo = [str(i) for i in parsed.geo]
 
     if len(parsed.fmin) != len(parsed.fmax):
         raise ValueError("Please make suer the length of fmin and fmax are the same")
@@ -347,7 +348,7 @@ if __name__ == '__main__':
             csv_path = os.path.join(folder_path, filename)
             data = utilities.AudioData(L=L, res=res, freq_range=[fmin, fmax])
             data.read_csv(csv_path=csv_path)
-            classifier = SVC(kernel='rbf', C=parsed.C, random_state=parsed.seed, probability=True)
+            classifier = SVC(kernel='linear', C=parsed.C, random_state=parsed.seed, probability=True)
             expts = Expts(data, parsed.output, classifier=classifier, random_state=parsed.seed, data_aug=(not parsed.no_data_aug))
             for loc in parsed.locs_list:
                 output_metrics = expts.run_cross_validation([loc])
@@ -436,3 +437,105 @@ if __name__ == '__main__':
         os.makedirs(os.path.join(parsed.root, "result"), exist_ok=True)
         summary_df.to_csv(save_path, index=False)
         print("Created summary_metrics_CNN.csv!")
+
+    if parsed.run_learning_curve:
+        folder_path = parsed.root
+        filenames = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
+        subset_ratios = [0.2, 0.4, 0.6, 0.8, 1.0]
+        results = []
+
+        for filename in filenames:
+            pattern = r"m(\d+)_g(\d+)_L(\d+)_r(\d+)_f(\d+)-(\d+)_w(\d+)"
+            match = re.search(pattern, filename)
+            if not match:
+                continue
+
+            m = int(match.group(1))
+            g = match.group(2)
+            L = int(match.group(3))
+            res = int(match.group(4))
+            fmin = int(match.group(5))
+            fmax = int(match.group(6))
+            window_length = int(match.group(7))
+
+            csv_path = os.path.join(folder_path, filename)
+            data = utilities.AudioData(L=L, res=res, freq_range=[fmin, fmax])
+            data.read_csv(csv_path=csv_path)
+            full_data = data.get_data()
+
+            for ratio in subset_ratios:
+                if ratio < 1.0:
+                    subset_data, _ = train_test_split(full_data, train_size=ratio, random_state=parsed.seed, stratify=full_data["Class"])
+                else:
+                    subset_data = full_data.copy()
+
+                # === SVM ===
+                svm_data = utilities.AudioData(L=L, res=res, freq_range=[fmin, fmax])
+                svm_data.set_data(subset_data)
+                svm_clf = SVC(kernel='linear', C=parsed.C, random_state=parsed.seed, probability=True)
+                svm_expt = Expts(svm_data, parsed.output, classifier=svm_clf, random_state=parsed.seed, data_aug=False)
+                output_metrics = svm_expt.run_cross_validation([parsed.locs_list[0]])
+                result_entry = {
+                    "filename": filename,
+                    "train_ratio": ratio,
+                    "model": "SVM",
+                    "location": parsed.locs_list[0],
+                    "L": L,
+                    "resolution": res,
+                    "fmin": fmin,
+                    "fmax": fmax,
+                    "num_mics": m,
+                    "geo": g,
+                    "window_length": window_length,
+                    "overall_accuracy_mean": output_metrics["overall_accuracy"][0],
+                    "overall_accuracy_std": output_metrics["overall_accuracy"][1],
+                    "per_class_accuracy_mean": output_metrics["per_class_accuracy"][0],
+                    "per_class_accuracy_std": output_metrics["per_class_accuracy"][1],
+                    "per_class_precision_mean": output_metrics["per_class_precision"][0],
+                    "per_class_precision_std": output_metrics["per_class_precision"][1],
+                    "per_class_recall_mean": output_metrics["per_class_recall"][0],
+                    "per_class_recall_std": output_metrics["per_class_recall"][1],
+                    "per_class_iou_mean": output_metrics["per_class_iou"][0],
+                    "per_class_iou_std": output_metrics["per_class_iou"][1],
+                    "conf_mat": output_metrics["conf_mat"]
+                }
+                results.append(result_entry)
+
+                # === CNN ===
+                cnn_data = utilities.AudioData(L=L, res=res, freq_range=[fmin, fmax])
+                cnn_data.set_data(subset_data)
+                input_shape = (L, res)
+                num_classes = 4
+                cnn_clf = CNNClassifier(input_shape=input_shape, num_classes=num_classes)
+                cnn_expt = Expts(cnn_data, parsed.output, classifier=cnn_clf, random_state=parsed.seed, data_aug=False)
+                output_metrics = cnn_expt.run_measure_CNN([parsed.locs_list[0]], L, res, num_classes)
+                result_entry = {
+                    "filename": filename,
+                    "train_ratio": ratio,
+                    "model": "CNN",
+                    "location": parsed.locs_list[0],
+                    "L": L,
+                    "resolution": res,
+                    "fmin": fmin,
+                    "fmax": fmax,
+                    "num_mics": m,
+                    "geo": g,
+                    "window_length": window_length,
+                    "overall_accuracy_mean": output_metrics["overall_accuracy"][0],
+                    "overall_accuracy_std": output_metrics["overall_accuracy"][1],
+                    "per_class_accuracy_mean": output_metrics["per_class_accuracy"][0],
+                    "per_class_accuracy_std": output_metrics["per_class_accuracy"][1],
+                    "per_class_precision_mean": output_metrics["per_class_precision"][0],
+                    "per_class_precision_std": output_metrics["per_class_precision"][1],
+                    "per_class_recall_mean": output_metrics["per_class_recall"][0],
+                    "per_class_recall_std": output_metrics["per_class_recall"][1],
+                    "per_class_iou_mean": output_metrics["per_class_iou"][0],
+                    "per_class_iou_std": output_metrics["per_class_iou"][1],
+                    "conf_mat": output_metrics["conf_mat"]
+                }
+                results.append(result_entry)
+
+        df = pd.DataFrame(results)
+        os.makedirs(os.path.join(parsed.root, "result"), exist_ok=True)
+        df.to_csv(os.path.join(parsed.root, "result/learning_curve.csv"), index=False)
+        print("✅ Saved learning_curve.csv")

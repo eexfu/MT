@@ -195,6 +195,9 @@ class AudioData:
     def get_data(self):
         return self.data
 
+    def set_data(self, data):
+        self.data = data
+
     def read_csv(self, csv_path=None):
         if csv_path is None:
             self.data = pd.read_csv(self.data_df_save_path)
