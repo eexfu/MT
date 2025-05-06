@@ -335,7 +335,7 @@ if __name__ == '__main__':
         filenames = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
         results = []
         for filename in filenames:
-            pattern = r"m(\d+)_g(\d+)_L(\d+)_r(\d+)_f(\d+)-(\d+)_w(\d+)"
+            pattern = r"m(\d+)_g([^_]+)_L(\d+)_r(\d+)_f(\d+)-(\d+)_w(\d+)"
             match = re.search(pattern, filename)
 
             m = int(match.group(1))
