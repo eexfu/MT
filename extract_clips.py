@@ -116,34 +116,49 @@ class AudioProcessor:
 
         return windows
 
-    def determine_front_subclass(self, car_boxes: Dict[str, List[dict]], image_width: int) -> str:
+    def determine_front_subclass(self, car_boxes: Dict[str, List[dict]], image_width: int, num_class: int = 6) -> Tuple[str, int]:
         """
-        根据检测框位置，决定属于 front / front_left / front_right
+        根据检测框位置，动态划分 front 区域的子类别，数量为 num_class - 3。
+        返回子类名（如 front、front_0、front_1 等）和对应的类别ID。
+        类别ID定义如下：
+          - "front" 为 0
+          - "none" 为 2（未检测到车）
+          - "front_0" 为 4，后续依次递增
         """
-        left_count, right_count = 0, 0
+        assert num_class >= 3, "num_class must be at least 3"
+        num_front_subclasses = num_class - 3
+        region_counts = [0] * num_front_subclasses
 
         for frame_idx, boxes in car_boxes.items():
             for box_info in boxes:
                 x_min, y_min, x_max, y_max = box_info['bbox']
                 center_x = (x_min + x_max) / 2
-                if center_x < image_width / 2:
-                    left_count += 1
-                else:
-                    right_count += 1
+                region_idx = int(center_x / image_width * num_front_subclasses)
+                region_idx = min(region_idx, num_front_subclasses - 1)  # 防止越界
+                region_counts[region_idx] += 1
 
-        total = left_count + right_count
+        total = sum(region_counts)
         if total == 0:
-            return "front"  # 没检测到车，默认 front
+            return "none", 2  # 没检测到车
 
-        left_ratio = left_count / total
-        right_ratio = right_count / total
+        dominant_idx = region_counts.index(max(region_counts))
 
-        if left_ratio > 0.7:
-            return "front_left"
-        elif right_ratio > 0.7:
-            return "front_right"
+        # 若为中间区域，称为 "front"，其余为 "front_0" 等
+        subclass_names = [f"front_{i}" for i in range(num_front_subclasses)]
+        mid_idx = num_front_subclasses // 2
+        subclass_names[mid_idx] = "front"
+
+        subclass_name = subclass_names[dominant_idx]
+        if subclass_name == "front":
+            class_id = 0
         else:
-            return "front"
+            if dominant_idx < mid_idx:
+                class_id = 4 + dominant_idx
+            else:
+                class_id = 4 + dominant_idx - 1
+
+        return subclass_name, class_id
+
 
     def process_folder(self, folder_path: str):
         if self.should_skip(folder_path):
@@ -235,16 +250,7 @@ class AudioProcessor:
                         if self.num_class == 4:
                             class_id, class_name = 0, 'front'
                         else:
-                            front_subclass = self.determine_front_subclass(car_boxes, self.image_width)
-
-                            if front_subclass == 'front_left':
-                                class_id = 4
-                            elif front_subclass == 'front_right':
-                                class_id = 5
-                            else:
-                                class_id = 0
-
-                            class_name = front_subclass
+                            class_name, class_id = self.determine_front_subclass(car_boxes=car_boxes, image_width=self.image_width, num_class=self.num_class)
 
                     metadata.update({
                         "class_id": class_id,

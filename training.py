@@ -19,7 +19,7 @@ import sklearn
 from sklearn.metrics import classification_report
 import metrics
 from model_pCNN import C_lenet
-from model import CNN, MLP, CNN_CBAM
+from model import CNN, HeavyCNN, SmallCNN
 from getFeature import *
 from torch.utils.data import Dataset, DataLoader
 
@@ -122,8 +122,8 @@ def load_and_process_data(loc, root, filename):
         df["origin_id"] = df["filename"].apply(extract_origin_id)
 
         group_keys = df["origin_id"].unique()
-        train_keys, testval_keys = train_test_split(group_keys, test_size=0.4, random_state=42)
-        val_keys, test_keys = train_test_split(testval_keys, test_size=0.5, random_state=42)
+        train_keys, testval_keys = train_test_split(group_keys, test_size=0.4, random_state=18)
+        val_keys, test_keys = train_test_split(testval_keys, test_size=0.5, random_state=18)
 
         train_df = df[df["origin_id"].isin(train_keys)].drop(columns=["origin_id"])
         val_df = df[df["origin_id"].isin(val_keys)].drop(columns=["origin_id"])
@@ -133,7 +133,7 @@ def load_and_process_data(loc, root, filename):
         train_val_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
         train_df, val_df = train_test_split(train_val_df, test_size=0.25, random_state=42)  # 0.25 * 0.8 = 0.2
 
-    print_dataset_distribution_df(train_df)
+    print_dataset_distribution_df(train_df, 'train set')
 
     # --- 数据增强 ---
     train_df = do_data_augmentation_left_right(train_df, resolution, L)
@@ -269,7 +269,7 @@ def train_test_DNN(train_set, val_set, test_set, L, resolution, num_class, loc, 
     train_loader = DataLoader(train_set, batch_size=32, shuffle=True, num_workers=4, pin_memory=True)
     val_loader = DataLoader(val_set, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
     test_loader = DataLoader(test_set, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
-    model = CNN(num_class).to(device)
+    model = HeavyCNN(output_dim=num_class).to(device)
     # model = MLP(L, resolution, 4).to(device)
     # model = CNN(L, resolution, 4).to(device)
     # model = CNN_CBAM().to(device)
@@ -290,16 +290,15 @@ def train_test_DNN(train_set, val_set, test_set, L, resolution, num_class, loc, 
     print(f"Total parameters: {total_params:,}")
 
     all_metrics = {"overall_accuracy": (accuracy, 0),
-                   "per_class_accuracy": (metrics.getPCaccuracy(conf_mat), np.zeros(6)),
-                   "per_class_precision": (metrics.getPCPrecision(conf_mat), np.zeros(6)),
-                   "per_class_recall": (metrics.getPCRecall(conf_mat), np.zeros(6)),
-                   "per_class_iou": (metrics.getPCIoU(conf_mat), np.zeros(6))}
+                   "per_class_accuracy": (metrics.getPCaccuracy(conf_mat), np.zeros(num_class)),
+                   "per_class_precision": (metrics.getPCPrecision(conf_mat), np.zeros(num_class)),
+                   "per_class_recall": (metrics.getPCRecall(conf_mat), np.zeros(num_class)),
+                   "per_class_iou": (metrics.getPCIoU(conf_mat), np.zeros(num_class)),
+                   "conf_mat": conf_mat.tolist()}
 
     metrics.print_metrics(all_metrics, True)
 
-    save_confusion_matrix_data(conf_mat, f"confmat_L{L}_res{resolution}_run{i}_{loc}.csv")
-
-    return all_metrics, conf_mat
+    return all_metrics
 
 
 def train_epoch(model, train_loader, val_loader, epoch, patience=20, save_path="best_model_earlystop.pth"):
@@ -455,10 +454,10 @@ def test_model(model, test_loader):
             all_preds.extend(predicted.cpu().numpy())
             all_targets.extend(labels.cpu().numpy())
 
-    accuracy_score = sklearn.metrics.accuracy_score(all_preds, all_targets)
+    accuracy_score = sklearn.metrics.accuracy_score(all_targets, all_preds)
 
     # extract confusion matrix and metrics
-    conf_mat = sklearn.metrics.confusion_matrix(all_preds, all_targets)
+    conf_mat = sklearn.metrics.confusion_matrix(all_targets, all_preds)
 
     return accuracy_score, conf_mat
 
@@ -532,9 +531,10 @@ def print_dataset_distribution(dataset, location_name, name):
         print(f"    ClassID {class_id} ({class_name}): {count}")
 
 
-def print_dataset_distribution_df(df):
+def print_dataset_distribution_df(df, name):
     counter = Counter(df["Class"].tolist())
 
+    print((f'{name}'))
     print(f"  总样本数(before data augmentation): {len(df)}")
     for class_id in range(6):
         count = counter.get(class_id, 0)
@@ -547,24 +547,6 @@ def print_dataset_distribution_df(df):
             5: "front_right"
         }.get(class_id, "unknown")
         print(f"    ClassID {class_id} ({class_name}): {count}")
-
-
-def save_confusion_matrix_data(conf_mat, filename="confusion_matrix.csv", class_names=None):
-    """
-    保存混淆矩阵为 CSV 文件格式。
-    参数：
-        conf_mat (np.ndarray): 混淆矩阵 (shape: [num_classes, num_classes])
-        filename (str): 保存路径
-        class_names (list[str]): 类别名称列表（可选）
-    """
-    import pandas as pd
-    if class_names is None:
-        class_names = ["front", "left", "none", "right", "front_left", "front_right"]
-        class_names = class_names[:conf_mat.shape[0]]
-
-    df = pd.DataFrame(conf_mat, index=class_names, columns=class_names)
-    df.to_csv(filename)
-    print(f"✅ 混淆矩阵已保存为：{filename}")
 
 
 def CNN_train(locs_list, root):
@@ -582,7 +564,7 @@ def CNN_train(locs_list, root):
                 times = 1
                 for i in range(times):
                     print(f'start turn {i}: ----------------------------------------------------------------')
-                    output_metrics, conf_mat = train_test_DNN(train_set, val_set, test_set, L, resolution, num_class, loc, epoch, i, True)
+                    output_metrics = train_test_DNN(train_set, val_set, test_set, L, resolution, num_class, loc, epoch, i, True)
                     result_entry = {
                         "filename": filename,
                         "location": loc,
@@ -601,7 +583,8 @@ def CNN_train(locs_list, root):
                         "per_class_recall_mean": [float(x) for x in output_metrics["per_class_recall"][0]],
                         "per_class_recall_std": [float(x) for x in output_metrics["per_class_recall"][1]],
                         "per_class_iou_mean": [float(x) for x in output_metrics["per_class_iou"][0]],
-                        "per_class_iou_std": [float(x) for x in output_metrics["per_class_iou"][1]]
+                        "per_class_iou_std": [float(x) for x in output_metrics["per_class_iou"][1]],
+                        "conf_mat": output_metrics["conf_mat"]
                     }
                     results.append(result_entry)
     summary_df = pd.DataFrame(results)

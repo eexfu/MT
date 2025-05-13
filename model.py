@@ -209,6 +209,33 @@ class CNN(nn.Module):
         return self.fc(x)
 
 
+class SmallCNN(nn.Module):
+    def __init__(self, output_dim=4):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 8, kernel_size=3, padding=1),     # Conv1
+            nn.BatchNorm2d(8),
+            nn.ReLU(),
+            nn.MaxPool2d(2),                               # 下采样
+
+            nn.Conv2d(8, 16, kernel_size=3, padding=1),    # Conv2
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((2, 2))                   # 输出变成 16×2×2 = 64
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(16 * 2 * 2, 32),                     # 64 -> 32
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            nn.Linear(32, output_dim)
+        )
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = x.view(x.size(0), -1)
+        return self.fc(x)
+
+
 class CNNClassifier:
     def __init__(self, input_shape, num_classes, lr=1e-3, device=None, patience=30, optimizer_type='adam'):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")

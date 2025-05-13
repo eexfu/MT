@@ -149,7 +149,7 @@ def heatMap_freq50_1500_by_location(df, location_name=None, filename_suffix="all
     plt.close()
 
 
-def plot_window_comparison_by_location(df):
+def plot_window_comparison_by_location(df, model):
     # 筛选所需列
     plot_df = df[df['fmin'] == 50]
     plot_df = plot_df[plot_df['fmax'] == 1500]
@@ -170,7 +170,7 @@ def plot_window_comparison_by_location(df):
         plt.ylim(0, 1)
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig(f'figures/accuracy_vs_window_{loc}.png')
+        plt.savefig(f'figures/accuracy_vs_window_{loc}_{model}.png')
         plt.close()
 
 
@@ -488,7 +488,7 @@ def plot_confusion_matrix_from_csv(csv_path, title="Confusion Matrix", save_path
     plt.close()
 
 
-def plot_confusion_matrices(df, save_dir="./figures/conf_matrices", labels=["front", "left", "none", "right"]):
+def plot_confusion_matrices(df, modelname, save_dir="./figures/conf_matrices", labels=["front", "left", "none", "right"]):
     """
     对 DataFrame 中每一行的混淆矩阵绘图并保存。
 
@@ -542,58 +542,98 @@ def plot_confusion_matrices(df, save_dir="./figures/conf_matrices", labels=["fro
         if "filename" in row and isinstance(row["filename"], str):
             base_name = os.path.splitext(os.path.basename(row["filename"]))[0]
 
-        save_path = os.path.join(save_dir, f"conf_mat_{base_name}_{row["location"]}.png")
+        save_path = os.path.join(save_dir, f"conf_mat_{base_name}_{row["location"]}_{modelname}.png")
         plt.savefig(save_path, dpi=300)
         print(f"Saved: {save_path}")
         plt.close()
 
 
+def plot_learning_curve(df, metric="overall_accuracy", save_path="figures/learning_curve_plot.png"):
+    """
+    绘制学习曲线图
+    参数:
+        df: 包含 train_ratio, accuracy_mean, accuracy_std, model 等列的DataFrame
+        metric: "accuracy", "iou", "recall" 等指标名
+    """
+    metric_mean = f"{metric}_mean"
+    metric_std = f"{metric}_std"
+
+    if not all(col in df.columns for col in [metric_mean, metric_std, 'train_ratio', 'model']):
+        raise ValueError("缺少必要字段，请确认包含 train_ratio、model、accuracy_mean 和 accuracy_std 等列")
+
+    df["train_ratio"] = df["train_ratio"].astype(float)
+    sns.set(style="whitegrid")
+
+    plt.figure(figsize=(8, 6))
+    sns.lineplot(data=df, x="train_ratio", y=metric_mean, hue="model", marker="o", err_style="bars", errorbar=None)
+
+    # 添加误差条
+    # for model in df["model"].unique():
+    #     sub_df = df[df["model"] == model]
+    #     plt.errorbar(sub_df["train_ratio"], sub_df[metric_mean], yerr=sub_df[metric_std], fmt='none', capsize=5)
+
+    plt.title(f"Learning Curve ({metric})")
+    plt.xlabel("Training Set Ratio")
+    plt.ylabel(f"Validation {metric.capitalize()}")
+    plt.ylim(0, 1.0)
+    plt.legend(title="Model")
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300)
+    # plt.show()
+
+
 if __name__ == '__main__':
-    # cnn_df = loadCSVData(path="./preprocess_test/result/summary_metrics_CNN_samples.csv")
-    # svm_df = loadCSVData(path="./preprocess/result/summary_metrics_SVM_samples.csv")
-    # cnn_mydata_df = loadCSVData(path="./preprocess_mydata/summary_metrics_mydata_window_length.csv")
-    #
-    test_df = loadCSVData(path="./result/summary_results_cross_val.csv")
-    plot_confusion_matrices(test_df, labels=["front", "left", "none", "right"])
-    #
+    svm_df = loadCSVData(path="./preprocess_test/result/summary_results_SVM.csv")
+    cnn_df = loadCSVData(path="./preprocess_test/result/summary_metrics_CNN.csv")
+    cnn_mydata_df = loadCSVData(path="./preprocess_mydata/test/summary_metrics.csv")
+    # learning_curve_df = loadCSVData(path="./preprocess_test/result/learning_curve.csv")
+
+    # Learning Curve
+    # plot_learning_curve(learning_curve_df, metric="overall_accuracy")
+
+    # Confusion Matrices
+    # plot_confusion_matrices(df=svm_df, modelname="SVM", labels=["front", "left", "none", "right"])
+    # plot_confusion_matrices(df=cnn_df, modelname="CNN", labels=["front", "left", "none", "right"])
+    plot_confusion_matrices(df=cnn_mydata_df, modelname="CNN_mydata", labels=["front", "left", "none", "right", "front_left", "front_right"])
+
     # draw_model_comparison_bar(cnn_df, svm_df, filename="barplot_cnn_vs_svm.png", average=False, L=2, resolution=240, fmax=1500, fmin=50, location=None)
     # draw_model_comparison_bar(cnn_df, svm_df, filename="barplot_cnn_vs_svm_average_within_freq.png", average=False, L=None, resolution=None, fmax=1500, fmin=50, location=None)
     # draw_model_comparison_bar(cnn_df, svm_df, filename="barplot_cnn_vs_svm_average.png")
     # for loc in cnn_df['location'].unique():
     #     draw_model_comparison_bar(cnn_df, svm_df, average=False, location=loc, filename=f"barplot_cnn_vs_svm_by_loc_{loc}.png")
-    #
+
     # freq_lists = [[20, 50], [50, 1500], [1500, 3000]]
     # for freq in freq_lists:
     #     fmin = freq[0]
     #     fmax = freq[1]
     #     draw_model_comparison_bar(cnn_df, svm_df, filename=f"cnn_vs_svm_{fmin}_{fmax}.png", average=False, fmax=fmax, fmin=fmin)
-    #
+
     # draw_all_confusion_matrices(
     #     cnn_dir="./preprocess_test/result",
     #     svm_dir="./preprocess/result",
     #     labels = ["front", "left", "none", "right"]
     # )
-    #
+
     # plot_confusion_matrix_from_csv(
     #     csv_path="confmat_L2_res240_run0_SAB.csv",
     #     title="Confusion Matrix (SAB, Normalized)",
     #     save_path="figures/confmat_SAB_normalized.png",
     #     normalize=True
     # )
-    #
+
     # # line_accuracyVsL_by_location(cnn_df, None, "all")
     # # line_accuracyVsL_by_location(cnn_df, "SAB", "SAB")
     # # line_accuracyVsL_by_location(cnn_df, "DAB", "DAB")
-    #
+
     # bar_accuracyVsFreqRange(cnn_df, "CNN")
     # bar_accuracyVsFreqRange(svm_df, "SVM")
-    #
+
     # # heatMap_freq50_1500_by_location(cnn_df, None, "all")
     # heatMap_freq50_1500_by_location(cnn_df, "SAB", "CNN_SAB", "CNN", 50, 1500)
     # heatMap_freq50_1500_by_location(cnn_df, "SAB", "CNN_SAB", "CNN", 1500, 3000)
     # heatMap_freq50_1500_by_location(cnn_df, "DAB", "CNN_DAB", "CNN", 50, 1500)
     # heatMap_freq50_1500_by_location(cnn_df, "DAB", "CNN_DAB", "CNN", 1500, 3000)
-    #
+
     # # heatMap_freq50_1500_by_location(cnn_df, None, "all")
     # heatMap_freq50_1500_by_location(svm_df, "SAB", "SVM_SAB", "SVM", 50, 1500)
     # heatMap_freq50_1500_by_location(svm_df, "DAB", "SVM_DAB", "SVM", 50, 1500)
@@ -604,5 +644,6 @@ if __name__ == '__main__':
     # plot_srp_polar_for_sample()
     # plot_delta_histogram_by_class_separate()
 
-    # df = loadCSVData(path="./preprocess_test/result/summary_metrics_CNN.csv")
-    # plot_window_comparison_by_location(cnn_df)
+    # Window Length
+    # plot_window_comparison_by_location(cnn_df, "CNN")
+    # plot_window_comparison_by_location(svm_df, "SVM")
