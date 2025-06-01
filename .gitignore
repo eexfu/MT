@@ -1,14 +1,14 @@
-# 忽略 Python 缓存
+# Ignore Python cache
 __pycache__/
 *.py[cod]
 
-# 忽略模型权重和输出文件
+# Ignore model weights and output files
 *.pth
 *.pkl
 *.png
 *.txt
 
-# 忽略配置文件和运行目录
+# Ignore configuration files and runtime directories
 .idea/
 runs/
 models/
@@ -16,5 +16,5 @@ processed_features/
 config/
 hearingWhatYouCannotSee.iml
 
-# 忽略日志和其他生成文件
+# Ignore logs and other generated files
 train_log.txt

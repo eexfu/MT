@@ -6,8 +6,7 @@ This repository contains the code for our master thesis project, which focuses o
 
 ## Main Features
 
-- Acoustic feature extraction
-- Data preprocessing and augmentation
+- Feature extraction and data preprocessing
 - SVM model training
 - CNN model training
 - CNN model training for fine-grained class
