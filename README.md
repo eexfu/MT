@@ -1,4 +1,4 @@
-# MT - Acoustic Signal Processing and Classification Project
+# MT - Multi-Class Acoustic Vehicle Localization at T-Junctions
 
 This project is a modified version based on the master thesis repository [occluded_vehicle_acoustic_detection](https://github.com/tudelft-iv/occluded_vehicle_acoustic_detection.git) from TU Delft. The original dataset can be found in that repository.
 
