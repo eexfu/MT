@@ -552,10 +552,9 @@ def train_and_test_CNN(train_set, test_set, pipeline, le, srp_dict=None, save_cl
     val_data = process_data(val_df)
     test_data = process_data(test_set)
 
-    # reshape 成 CNN 接收的 [B, L, R]
-    X_train = train_data[0].reshape(-1, srp_dict['res'], srp_dict['nsegs'])
-    X_val   = val_data[0].reshape(-1, srp_dict['res'], srp_dict['nsegs'])
-    X_test  = test_data[0].reshape(-1, srp_dict['res'], srp_dict['nsegs'])
+    X_train = train_data[0]
+    X_val   = val_data[0]
+    X_test  = test_data[0]
 
     pipeline.train_model(X_train, train_data[1], X_val, val_data[1], epochs=epochs)
     test_predicted = pipeline.predict(X_test)

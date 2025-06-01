@@ -10,13 +10,14 @@ if __name__ == '__main__':
     # step_mid_t0_list = [250]
     # step_post_t0_list = [150]
 
-    window_length_list = [1000, 500, 200, 100]
-    step_pre_t0_list = [1000, 500, 200, 100]
-    step_mid_t0_list = [250, 125, 50, 25]
-    step_post_t0_list = [150, 75, 30, 15]
+    window_length_list = [100]
+    step_pre_t0_list = [100]
+    step_mid_t0_list = [100]
+    step_post_t0_list = [100]
 
     mid_window_length = 1000
-    num_class = [7, 8, 9, 10]
+    num_class = [4, 5, 6, 7, 8, 9, 10]
+    # num_class = [5]
 
     for j in range(len(num_class)):
         for i in range(len(window_length_list)):
@@ -27,7 +28,7 @@ if __name__ == '__main__':
                 video_rate=10,
                 window_length_ms=window_length_list[i],     # 每个剪切片段
                 step_pre_t0_ms=step_pre_t0_list[i],       # 前段窗口步长
-                step_post_t0_ms=step_post_t0_list[i],      # T0前1.5秒窗口步长
+                step_post_t0_ms=step_post_t0_list[i],      # T0后1.5秒窗口步长
                 step_mid_t0_ms=step_mid_t0_list[i],       # T0之后窗口步长
                 mid_window_length=mid_window_length,
                 image_width=1936,
@@ -53,7 +54,7 @@ if __name__ == '__main__':
             count_classid_and_ids(target_folder)
 
             L_list = [2]
-            resolution_list = [240]
+            resolution_list = [30]
             freq_range_list = [[50, 1500]]
 
             mic_array = loadMicarray()
@@ -67,7 +68,7 @@ if __name__ == '__main__':
 
                         extract_from_wav_folder(
                             folder_path=target_folder,
-                            save_path=rf".\preprocess_mydata\metadata_samples_L{L}_r{resolution}_f{fmin}-{fmax}_w{window_length_list[i]}_pre{step_pre_t0_list[i]}_post{step_post_t0_list[i]}_mid{step_mid_t0_list[i]}_mw{mid_window_length}_c{num_class[j]}.csv",
+                            save_path=rf".\preprocess_mydata\thesis\metadata_samples_L{L}_r{resolution}_f{fmin}-{fmax}_w{window_length_list[i]}_pre{step_pre_t0_list[i]}_post{step_post_t0_list[i]}_mid{step_mid_t0_list[i]}_mw{mid_window_length}_c{num_class[j]}.csv",
                             mic_array=mic_array,
                             resolution=resolution,
                             freq_range=freq_range,

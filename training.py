@@ -18,9 +18,8 @@ from tqdm import tqdm
 import sklearn
 from sklearn.metrics import classification_report
 import metrics
-from model_pCNN import C_lenet
 from model import CNN, HeavyCNN, SmallCNN
-from getFeature import *
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -97,6 +96,7 @@ def load_and_process_data(loc, root, filename):
         raise FileNotFoundError(f"文件不存在：{dataset_csv}")
 
     df = pd.read_csv(dataset_csv)
+    print_dataset_distribution_df(df, "All")
 
     # --- 筛选 location ---
     env_map = {
@@ -137,8 +137,8 @@ def load_and_process_data(loc, root, filename):
 
     # --- 数据增强 ---
     train_df = do_data_augmentation_left_right(train_df, resolution, L)
-    if num_class > 4:
-        train_df = do_data_augmentation_front_none(train_df, resolution, L)
+    # if num_class > 4:
+    #     train_df = do_data_augmentation_front_none(train_df, resolution, L)
 
     # --- 创建DataLoader用的数据集 ---
     train_set = GetPrecomputedData(train_df.reset_index(drop=True), L, resolution)
@@ -269,7 +269,7 @@ def train_test_DNN(train_set, val_set, test_set, L, resolution, num_class, loc, 
     train_loader = DataLoader(train_set, batch_size=32, shuffle=True, num_workers=4, pin_memory=True)
     val_loader = DataLoader(val_set, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
     test_loader = DataLoader(test_set, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
-    model = HeavyCNN(output_dim=num_class).to(device)
+    model = CNN(output_dim=num_class).to(device)
     # model = MLP(L, resolution, 4).to(device)
     # model = CNN(L, resolution, 4).to(device)
     # model = CNN_CBAM().to(device)
@@ -555,13 +555,13 @@ def CNN_train(locs_list, root):
     for filename in filenames:
         if filename.startswith('metadata'):
             for loc in locs_list:
-                epoch = 100
+                epoch = 300
                 train_set, val_set, test_set, L, resolution, fmin, fmax, mid_window_length, num_class = load_and_process_data(loc=loc, root=root, filename=filename)
                 print_dataset_distribution(train_set, loc, "train set")
                 print_dataset_distribution(val_set, loc, "val set")
                 print_dataset_distribution(test_set, loc, "test set")
                 print(f'L: {L}, resolution: {resolution}, fmin: {fmin}, fmax: {fmax}, loc: {loc}, filename: {filename}')
-                times = 1
+                times = 0
                 for i in range(times):
                     print(f'start turn {i}: ----------------------------------------------------------------')
                     output_metrics = train_test_DNN(train_set, val_set, test_set, L, resolution, num_class, loc, epoch, i, True)
