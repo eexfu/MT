@@ -22,10 +22,10 @@ This is a Python project for acoustic signal processing and classification, prim
 python training_samples.py --extract_feats --input <input_data_path> --save_path <save_path>
 
 # Feature extraction with different microphone configurations
-python training_samples.py --num_mics 56 32 16 8 4 --extract_feats --input <input_data_path> --save_path <save_path> --L 2 4 8 16 --res 30 60 120 240 360 --fmin 20 50 150 --fmax 50 1500 3000
+python training_samples.py --num_mics 56 32 16 8 4 --extract_feats --input <input_data_path> --save_path <save_path> --L 2 4 8 16 --res 30 60 120 240 360 --fmin 20 50 1500 --fmax 50 1500 3000
 
 # Feature extraction with specific geometric configuration
-python training_samples.py --geo col0 col3 row4 row7 --extract_feats --input <input_data_path> --save_path <save_path> --L 2 4 8 16 --res 30 60 120 240 360 --fmin 20 50 150 --fmax 50 1500 3000
+python training_samples.py --geo col0 col3 row4 row7 --extract_feats --input <input_data_path> --save_path <save_path> --L 2 4 8 16 --res 30 60 120 240 360 --fmin 20 50 1500 --fmax 50 1500 3000
 ```
 
 ### 2. SVM model training
