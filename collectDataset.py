@@ -1,16 +1,17 @@
+# This code was completed with assistance from ChatGPT.
 import os
 import shutil
 from collections import defaultdict
 
-# 图像宽度
+# Image width
 image_width = 1936
 center_line = image_width / 2
 
 def cut_files(path_root, target_folder):
-    """从所有result文件夹剪切wav和json到目标文件夹"""
+    """Cut wav and json files from all result folders to target folder"""
     if os.path.exists(target_folder):
         shutil.rmtree(target_folder)
-        print(f"🧹 已清空目标文件夹: {target_folder}")
+        print(f"Target folder cleared: {target_folder}")
 
     os.makedirs(target_folder, exist_ok=True)
 
@@ -31,22 +32,22 @@ def cut_files(path_root, target_folder):
                     shutil.move(source_file, target_file)
                     file_count += 1
 
-    print(f"✅ 总共迁移了 {file_count} 个文件到 {target_folder}")
+    print(f"Total {file_count} files moved to {target_folder}")
 
 
 def count_classid_and_ids(target_folder):
-    """根据文件名统计分类ID和原始ID，同时按子数据集统计"""
+    """Count classification IDs and original IDs based on filenames, also count by sub-dataset"""
 
-    # 总体统计
+    # Overall statistics
     classid_stats_total = defaultdict(int)
     original_id_stats = defaultdict(int)
     classid_mapping = defaultdict(set)
 
-    # 每个子数据集的统计
+    # Statistics for each sub-dataset
     subdatasets = ['SA', 'SB', 'SAB', 'DA', 'DB', 'DAB']
     subdataset_stats = {key: defaultdict(int) for key in subdatasets}
 
-    # 映射LOC_ID到子数据集
+    # Map LOC_ID to sub-dataset
     LOC_MAP = {
         "00": "SA1",
         "01": "SA2",
@@ -93,7 +94,7 @@ def count_classid_and_ids(target_folder):
         elif filename.endswith('.wav'):
             total_wav += 1
         else:
-            continue  # 跳过其他非目标文件
+            continue  # Skip other non-target files
 
         total_files += 1
 
@@ -102,68 +103,68 @@ def count_classid_and_ids(target_folder):
 
         parts = filename.split('_')
         try:
-            loc_id = parts[1]  # 是 "00" 这种
+            loc_id = parts[1]  # Format like "00"
             original_id = '_'.join(parts[:3])
             classid = int(parts[3])
 
             location = LOC_MAP.get(loc_id)
             if location is None:
-                print(f"⚠️ 无法识别的LOC ID: {loc_id} in {filename}")
+                print(f" Unrecognized LOC ID: {loc_id} in {filename}")
                 continue
 
             group = LOC_TO_GROUP.get(location)
             if group is None:
-                print(f"⚠️ 无法归属到子数据集: {location} in {filename}")
+                print(f" Cannot assign to sub-dataset: {location} in {filename}")
                 continue
 
-            # 统计总体
+            # Overall statistics
             classid_stats_total[classid] += 1
             original_id_stats[original_id] += 1
             class_mapped = CLASS_MAP.get(classid, "unknown")
             classid_mapping[classid].add(class_mapped)
 
-            # 统计每个子数据集
+            # Statistics for each sub-dataset
             subdataset_stats[group][classid] += 1
 
-            # SAB 和 DAB 特别处理：SAB=SA+SB，DAB=DA+DB
+            # Special handling for SAB and DAB: SAB=SA+SB, DAB=DA+DB
             if group in ["SA", "SB"]:
                 subdataset_stats["SAB"][classid] += 1
             if group in ["DA", "DB"]:
                 subdataset_stats["DAB"][classid] += 1
 
         except (IndexError, ValueError) as e:
-            print(f"⚠️ 文件名解析失败: {filename} - {str(e)}")
+            print(f" Filename parsing failed: {filename} - {str(e)}")
             continue
 
-    # 打印统计结果
-    print(f"\n📁 总文件数: {total_files} ( {total_wav} .wav, {total_json} .json)")
+    # Print statistics
+    print(f"\n Total files: {total_files} ( {total_wav} .wav, {total_json} .json)")
 
-    print("\n📊 总体 ClassID 分布：")
+    print("\n Overall ClassID distribution:")
     for cid, count in sorted(classid_stats_total.items()):
         mapped_classes = ', '.join(classid_mapping[cid])
         print(f"  ClassID {cid} ({mapped_classes}): {count}")
 
-    print(f"\n📋 原始ID数量: {len(original_id_stats)}")
+    print(f"\n Number of original IDs: {len(original_id_stats)}")
 
-    print("\n📋 原始ID出现次数（前10个）:")
+    print("\n Original ID occurrence count (top 10):")
     for idx, (oid, count) in enumerate(sorted(original_id_stats.items(), key=lambda x: x[1], reverse=True)):
         if idx >= 10:
             break
         print(f"  {oid}: {count}")
 
-    print("\n🔍 Class ID映射检查:")
+    print("\n Class ID mapping check:")
     for cid, classes in classid_mapping.items():
         if len(classes) > 1:
-            print(f"⚠️ ClassID {cid} 存在冲突映射: {classes}")
+            print(f" ClassID {cid} has conflicting mappings: {classes}")
         else:
-            print(f"✅ ClassID {cid} 统一映射为: {classes.pop()}")
+            print(f" ClassID {cid} consistently mapped to: {classes.pop()}")
 
-    print("\n📊 子数据集内 ClassID 分布：")
+    print("\n ClassID distribution in sub-datasets:")
     for subset in subdatasets:
         print(f"\n-- {subset} --")
         subset_stats = subdataset_stats[subset]
         total = sum(subset_stats.values())
-        print(f"  总样本数: {total}")
+        print(f"  Total samples: {total}")
         for cid in sorted(subset_stats.keys()):
             print(f"    ClassID {cid} ({CLASS_MAP.get(cid, 'unknown')}): {subset_stats[cid]}")
 

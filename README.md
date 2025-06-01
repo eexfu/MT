@@ -2,9 +2,7 @@
 
 This project is a modified version based on the master thesis repository [occluded_vehicle_acoustic_detection](https://github.com/tudelft-iv/occluded_vehicle_acoustic_detection.git) from TU Delft. The original dataset can be found in that repository.
 
-This repository contains the code for my master thesis project, which focuses on acoustic signal processing and classification using microphone arrays. The project extends the original work by implementing additional features and improvements.
-
-This is a Python project for acoustic signal processing and classification, primarily used for processing and analyzing acoustic data collected from microphone arrays.
+This repository contains the code for our master thesis project, which focuses on acoustic signal processing and classification using microphone arrays. The project extends the original work by implementing additional features and improvements.
 
 ## Main Features
 

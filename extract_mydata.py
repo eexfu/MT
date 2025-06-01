@@ -1,3 +1,4 @@
+# This code was completed with assistance from ChatGPT.
 import os
 
 from extract_clips import AudioProcessor
@@ -26,25 +27,25 @@ if __name__ == '__main__':
                 path_root=PATH_ROOT,
                 audio_rate=48000,
                 video_rate=10,
-                window_length_ms=window_length_list[i],     # 每个剪切片段
-                step_pre_t0_ms=step_pre_t0_list[i],       # 前段窗口步长
-                step_post_t0_ms=step_post_t0_list[i],      # T0后1.5秒窗口步长
-                step_mid_t0_ms=step_mid_t0_list[i],       # T0之后窗口步长
+                window_length_ms=window_length_list[i],     # Length of each clip
+                step_pre_t0_ms=step_pre_t0_list[i],       # Pre-t0 window step
+                step_post_t0_ms=step_post_t0_list[i],      # Post-t0 1.5s window step
+                step_mid_t0_ms=step_mid_t0_list[i],       # Post-t0 window step
                 mid_window_length=mid_window_length,
                 image_width=1936,
                 num_class=num_class[j]
             )
 
-            # 遍历整个数据集目录
+            # Traverse the entire dataset directory
             for root, dirs, files in os.walk(PATH_ROOT):
                 if processor.should_skip(root):
                     continue
                 if 'out_multi.wav' in files:
                     print(f"\n{'=' * 40}")
-                    print(f"处理目录: {root}")
+                    print(f"Processing directory: {root}")
                     processor.process_folder(root)
 
-            print("\n✅ 全部处理完成！")
+            print("\nAll processing completed!")
 
             path_root = r'D:\ovad\ovad_dataset'# r'C:\temp\KU Leuven\Master\Master Thesis\Database\ovad'
             target_folder = r'D:\ovad\mydata'

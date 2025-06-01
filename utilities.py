@@ -1,3 +1,4 @@
+# This file is modified from the original code of the paper.
 import os
 import warnings
 
@@ -46,30 +47,30 @@ class AudioData:
     def random_chose_mic(self, num, save_path, filename):
         global selected_indices
         """
-        随机选择 num 个麦克风，并更新 self.mic_array
+        Randomly select num microphones and update self.mic_array
         """
         if num > self.mic_array.shape[0]:
-            raise ValueError(f"要求的麦克风数量 {num} 超过了可用麦克风数量 {self.mic_array.shape[0]}")
+            raise ValueError(f"Requested number of microphones {num} exceeds available microphones {self.mic_array.shape[0]}")
         random_indices = np.random.choice(self.mic_array.shape[0], num, replace=False)
         selected_indices = np.sort(random_indices)
         self.mic_array = self.mic_array[selected_indices]
         print(selected_indices)
-        print(f"已随机选择 {num} 个麦克风，更新后的麦克风阵列：")
+        print(f"Randomly selected {num} microphones, updated microphone array:")
         print(self.mic_array)
         self.plot_mic_array(save_path, filename)
 
 
     def select_geometry(self, shape_name, save_path, filename):
         """
-        选择特定几何形状的麦克风子集。
+        Select a subset of microphones with specific geometry.
 
-        参数:
-        - shape_name: str，几何形状名称，例如 "circle1", "cross", "x_shape", "center_block"
+        Args:
+            shape_name: str, geometry name, e.g. "circle1", "cross", "x_shape", "center_block"
         """
 
         global selected_indices
 
-        # 定义预设的几何形状（你可以按需扩展）
+        # Define preset geometries (can be extended as needed)
         shapes = {
             "col0": np.array([0, 4, 44, 42]),
             "col1": np.array([1, 2, 5, 45, 43]),
@@ -107,27 +108,27 @@ class AudioData:
         }
 
         if shape_name not in shapes:
-            raise ValueError("❌ 未找到形状 Didn't find the corresponding shape")
+            raise ValueError("Shape not found")
 
         selected_indices = shapes[shape_name]
         self.mic_array = self.mic_array[selected_indices]
 
-        print(f"✅ 选择的形状: '{shape_name}'")
-        print(f"麦克风索引: {selected_indices}")
+        print(f"Selected shape: '{shape_name}'")
+        print(f"Microphone indices: {selected_indices}")
         self.plot_mic_array(save_path, filename)
 
     def plot_mic_array(self, save_path, filename):
         global all_mic_array
         plt.figure(figsize=(8, 6))
         all_mic_array = loadMicarray()
-        # 绘制所有麦克风
+        # Plot all microphones
         plt.scatter(all_mic_array[:, 1], all_mic_array[:, 2], c='blue', marker='o', label="All Microphones")
 
-        # 标注所有麦克风编号
+        # Label all microphone numbers
         for i in range(len(all_mic_array)):
             plt.text(all_mic_array[i, 1], all_mic_array[i, 2], str(i + 1), fontsize=9, ha='right', va='bottom')
 
-        # 绘制被选中的麦克风（用红色）
+        # Plot selected microphones (in red)
         if selected_indices is not None:
             plt.scatter(all_mic_array[selected_indices, 1], all_mic_array[selected_indices, 2], c='red', marker='o',
                         label="Selected Microphones")
@@ -137,22 +138,22 @@ class AudioData:
         plt.title("Microphone Array Layout")
         plt.grid(True)
         plt.legend()
-        # 创建目录（如果不存在）
+        # Create directory (if it doesn't exist)
         os.makedirs(save_path, exist_ok=True)
 
-        # 拼接完整保存路径
+        # Construct full save path
         full_path = os.path.join(save_path, filename)
 
-        # 保存图像为文件
+        # Save image as file
         plt.savefig(full_path, dpi=300, bbox_inches='tight')
-        print(f"✅ Mic array plot saved to {full_path}")
+        print(f"Mic array plot saved to {full_path}")
 
         plt.close()
 
     def extract_data(self, data_path, save=False):
         label_data = pd.read_csv(os.path.join(data_path, 'SampleLog.csv'))
 
-        # 把 Class 列移到最前
+        # Move Class column to the front
         label_data = label_data[["Class"] + [col for col in label_data.columns if col != "Class"]]
 
         data_columns = None
@@ -163,7 +164,7 @@ class AudioData:
         for idx, row in tqdm(label_data.iterrows(), desc='Extracting features: ', total=label_data.shape[0]):
             sample_path = os.path.join(data_path, row["Class"], row["ID"] + '.wav')
             sample_rate, data = wavf.read(sample_path)
-            selected_data = data[:, selected_indices]  # 通道选择
+            selected_data = data[:, selected_indices]  # Channel selection
 
             window_len = self.window_length
             window_samples = int(sample_rate * (window_len / 1000.0))
@@ -184,7 +185,7 @@ class AudioData:
                 rows_list.append(row_values)
                 num_samples[row["Class"]] += 1
 
-        # 一次性创建 DataFrame（更快）
+        # Create DataFrame at once (faster)
         extracted_data = pd.DataFrame(rows_list, columns=data_columns)
         self.data = extracted_data
 
@@ -248,7 +249,7 @@ def prepare_skl_interface_CNN(data_in, classifier):
     #prepare the sklearn interface
     le = skl.preprocessing.LabelEncoder()
     le.fit(data_in["Class"].unique())
-    pipeline = classifier  # 因为 CNN 不适合和 StandardScaler 连用
+    pipeline = classifier  # CNN is not suitable to use with StandardScaler
 
     return le, pipeline
 
@@ -367,7 +368,7 @@ def cross_validation_CNN(pipeline, n_folds, data, le, srp_dict, data_aug=True, L
             training_set = pd.concat(train_list, ignore_index=True)
             validation_set = pd.concat(val_list, ignore_index=True)
 
-        # 🔁 每 fold 重新初始化 CNNClassifier
+        # Reinitialize CNNClassifier for each fold
         pipeline = CNNClassifier(
             input_shape=(L, res),
             num_classes=num_classes,
@@ -405,25 +406,25 @@ def cross_validation_CNN(pipeline, n_folds, data, le, srp_dict, data_aug=True, L
 
 def do_data_augmentation(data_in, res, nsegs):
     """
-    对 left 和 right 类进行镜像翻转增强，同时对标签进行对称翻转。
+    Perform mirror flip augmentation for left and right classes, with symmetric label flipping.
 
-    参数:
-        data_in: pd.DataFrame，原始数据（含特征 + Class + 其他信息）
-        res: int，每段特征长度（resolution）
-        nsegs: int，段数（时间窗口个数）
+    Args:
+        data_in: pd.DataFrame, original data (features + Class + other info)
+        res: int, feature length per segment (resolution)
+        nsegs: int, number of segments (time windows)
 
-    返回:
-        data_out: pd.DataFrame，包含原始 + 增强后的数据
+    Returns:
+        data_out: pd.DataFrame, containing original + augmented data
     """
     columns = data_in.columns
     data_out = data_in.copy()
     right = data_in[data_in["Class"] == 3]
     left = data_in[data_in["Class"] == 1]
-    # 用列表收集新样本
+    # Collect new samples in lists
     augmented_right_rows = []
     augmented_left_rows = []
 
-    # 对 right 做翻转 → 变成 left
+    # Flip right → become left
     for _, row in right.iterrows():
         flipped_segments = []
         for i in range(nsegs):
@@ -432,11 +433,11 @@ def do_data_augmentation(data_in, res, nsegs):
         flipped_feature = np.concatenate(flipped_segments)
 
         label = np.array([1])
-        suffix = row[nsegs * res + 1:].to_numpy()  # 跳过 class 标签那一列
+        suffix = row[nsegs * res + 1:].to_numpy()  # Skip the class label column
         new_row = np.concatenate((flipped_feature, label, suffix))
         augmented_right_rows.append(new_row)
 
-    # 对 left 做翻转 → 变成 right
+    # Flip left → become right
     for _, row in left.iterrows():
         flipped_segments = []
         for i in range(nsegs):
@@ -449,7 +450,7 @@ def do_data_augmentation(data_in, res, nsegs):
         new_row = np.concatenate((flipped_feature, label, suffix))
         augmented_left_rows.append(new_row)
 
-    # 构建新 DataFrame（如果有增强样本）
+    # Build new DataFrame (if there are augmented samples)
     if augmented_right_rows:
         df_right = pd.DataFrame(augmented_right_rows, columns=columns)
         data_out = pd.concat([data_out, df_right], ignore_index=True)
@@ -526,23 +527,12 @@ def train_and_test_CNN(train_set, test_set, pipeline, le, srp_dict=None, save_cl
         if 'feat' in col:
             i_max = i + 1
 
-    # # split the dataframe to get features and append the transformed labels
-    # data_train = np.split(train_set.to_numpy(), [i_max], axis=1)
-    # data_train[1] = le.transform(train_set["Class"])
-    #
-    # data_test = np.split(test_set.to_numpy(), [i_max], axis=1)
-    # data_test[1] = le.transform(test_set["Class"])
-    #
-    # # fit the classifier and predict on the test set
-    # X_train = data_train[0].reshape(-1, srp_dict['res'], srp_dict['nsegs'])  # 注意：确保feat数量 = res × nsegs
-    # X_test = data_test[0].reshape(-1, srp_dict['res'], srp_dict['nsegs'])
-
-    # 在 train_set 内部分出 train/val
+    # Split train_set into train/val
     train_df, val_df = train_test_split(
         train_set, test_size=0.2, stratify=train_set["Class"], random_state=42
     )
 
-    # 划分出特征和标签
+    # Split features and labels
     def process_data(df):
         data = np.split(df.to_numpy(), [i_max], axis=1)
         data[1] = le.transform(df["Class"])
@@ -593,7 +583,7 @@ def loadMicarray():
     ar_x = []
     ar_y = []
     
-    # iterrate through the xml to get all locations
+    # iterate through the xml to get all locations
     root = ET.parse(os.path.dirname(os.path.abspath(__file__)) + '/config/ourmicarray_56.xml').getroot()
     for type_tag in root.findall('pos'):
         ar_x.append(type_tag.get('x'))

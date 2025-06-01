@@ -1,3 +1,4 @@
+# This file is modified from the original code of the paper.
 import os
 import numpy as np
 import pandas as pd
@@ -31,13 +32,13 @@ def extract_from_wav_folder(folder_path, save_path, mic_array, resolution, freq_
 
             feature = extractSRPFeature(data, sample_rate, mic_array, resolution, freq_range, nfft, L)
 
-            # 提取 classid
+            # Extract classid
             parts = filename.split('_')
             classid = int(parts[3])
             env_code = parts[1]
             environment = ENV_MAP.get(env_code, "Unknown")
 
-            # 拼接成一行：特征 + class + filename
+            # Concatenate into a row: feature + class + filename
             row = np.concatenate([feature, np.array([classid, filename, environment], dtype=object)])
             extracted_data.append(row)
 
@@ -48,12 +49,12 @@ def extract_from_wav_folder(folder_path, save_path, mic_array, resolution, freq_
         print("No matching files found for the specified location list.")
         return
 
-    # 构建 DataFrame
+    # Create DataFrame
     feat_len = len(feature)
     columns = [f"feat{i}" for i in range(feat_len)] + ["Class", "filename", "Environment"]
     df = pd.DataFrame(extracted_data, columns=columns)
 
-    # 保存
+    # Save
     df.to_csv(save_path, index=False)
     print(f"Saved metadata to {save_path}")
 

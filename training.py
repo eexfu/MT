@@ -1,3 +1,4 @@
+# This file is modified from the original code of the paper.
 import argparse
 import os
 import json
@@ -44,13 +45,13 @@ log_dir = 'runs/train_log'
 class GetPrecomputedData(Dataset):
     def __init__(self, dataframe, L, resolution, device='cpu'):
         """
-        直接一次性把特征和标签 tensor 化，避免 __getitem__ 每次转换浪费时间。
+        Directly convert features and labels to tensors at initialization to avoid repeated conversions in __getitem__.
 
         Args:
-            dataframe (pd.DataFrame): 输入的 dataframe
-            L (int): 时间段数量
-            resolution (int): 每段特征的维度
-            device (str): 'cpu' 或 'cuda'
+            dataframe (pd.DataFrame): Input dataframe
+            L (int): Number of time segments
+            resolution (int): Dimension of features per segment
+            device (str): 'cpu' or 'cuda'
         """
         self.L = L
         self.resolution = resolution
@@ -74,15 +75,15 @@ class GetPrecomputedData(Dataset):
 
 def load_and_process_data(loc, root, filename):
     """
-    加载预处理特征，并按 origin_id 分组划分，避免信息泄露。
-    支持文件名如：metadata_samples_L2_r240_f50-1500_w1000_pre1000_post100_mid250_c6.csv
+    Load preprocessed features and split by origin_id to avoid information leakage.
+    Supports filenames like: metadata_samples_L2_r240_f50-1500_w1000_pre1000_post100_mid250_c6.csv
     """
 
-    # 先通过正则提取关键参数（只提取前面的 L r fmin fmax）
+    # First extract key parameters using regex (only extract L, r, fmin, fmax)
     pattern = r"_L(\d+)_r(\d+)_f(\d+)-(\d+)_w(\d+)_pre(\d+)_post(\d+)_mid(\d+)_mw(\d+)_c(\d+)"
     match = re.search(pattern, filename)
     if not match:
-        raise ValueError(f"文件名格式错误，无法提取L/r/fmin/fmax：{filename}")
+        raise ValueError(f"Invalid filename format, cannot extract L/r/fmin/fmax: {filename}")
 
     L = int(match.group(1))
     resolution = int(match.group(2))
@@ -93,12 +94,12 @@ def load_and_process_data(loc, root, filename):
 
     dataset_csv = os.path.join(root, filename)
     if not os.path.exists(dataset_csv):
-        raise FileNotFoundError(f"文件不存在：{dataset_csv}")
+        raise FileNotFoundError(f"File not found: {dataset_csv}")
 
     df = pd.read_csv(dataset_csv)
     print_dataset_distribution_df(df, "All")
 
-    # --- 筛选 location ---
+    # --- Filter by location ---
     env_map = {
         "SA": ["SA1", "SA2"],
         "SB": ["SB1", "SB2", "SB3"],
@@ -110,13 +111,13 @@ def load_and_process_data(loc, root, filename):
     valid_envs = env_map[loc]
     df = df[df["Environment"].isin(valid_envs)]
 
-    # --- 信息泄露处理 ---
+    # --- Handle information leakage ---
     if "filename" in df.columns:
-        print("✅ Detected 'filename' column，进行 origin_id 分组，避免信息泄露。")
+        print("✅ Detected 'filename' column, grouping by origin_id to avoid information leakage.")
 
         def extract_origin_id(path):
             basename = os.path.basename(path)
-            parts = basename.split("_")[:3]  # 取前三段，比如 Sxx_Dxx_ID
+            parts = basename.split("_")[:3]  # Take first three parts, e.g. Sxx_Dxx_ID
             return "_".join(parts)
 
         df["origin_id"] = df["filename"].apply(extract_origin_id)
@@ -129,18 +130,18 @@ def load_and_process_data(loc, root, filename):
         val_df = df[df["origin_id"].isin(val_keys)].drop(columns=["origin_id"])
         test_df = df[df["origin_id"].isin(test_keys)].drop(columns=["origin_id"])
     else:
-        print("⚠️ 没有 'filename' 列，直接随机划分 train/val/test。")
+        print("⚠️ No 'filename' column, performing random train/val/test split.")
         train_val_df, test_df = train_test_split(df, test_size=0.2, random_state=42)
         train_df, val_df = train_test_split(train_val_df, test_size=0.25, random_state=42)  # 0.25 * 0.8 = 0.2
 
     print_dataset_distribution_df(train_df, 'train set')
 
-    # --- 数据增强 ---
+    # --- Data augmentation ---
     train_df = do_data_augmentation_left_right(train_df, resolution, L)
     # if num_class > 4:
     #     train_df = do_data_augmentation_front_none(train_df, resolution, L)
 
-    # --- 创建DataLoader用的数据集 ---
+    # --- Create datasets for DataLoader ---
     train_set = GetPrecomputedData(train_df.reset_index(drop=True), L, resolution)
     val_set = GetPrecomputedData(val_df.reset_index(drop=True), L, resolution)
     test_set = GetPrecomputedData(test_df.reset_index(drop=True), L, resolution)
@@ -150,24 +151,24 @@ def load_and_process_data(loc, root, filename):
 
 def do_data_augmentation_left_right(df, res, L):
     """
-    一键完成数据增强：
-    - front (0)：镜像翻转
-    - none (2)：根据front增强量，下采样
-    - left (1) ↔ right (3)：互相翻转增强
-    - front_left / front_right：保留不变
+    Perform data augmentation in one step:
+    - front (0): mirror flip
+    - none (2): downsample based on front augmentation amount
+    - left (1) ↔ right (3): mutual flip augmentation
+    - front_left / front_right: keep unchanged
 
-    参数：
-        df (pd.DataFrame): 原始数据，含 feat 列和 Class 列
-        res (int): 每段分辨率
-        L (int): 时间段数
+    Args:
+        df (pd.DataFrame): Original data with feat columns and Class column
+        res (int): Resolution per segment
+        L (int): Number of time segments
 
-    返回：
-        df_augmented (pd.DataFrame): 增强后的新数据
+    Returns:
+        df_augmented (pd.DataFrame): Augmented data
     """
     df_orig = df.copy()
     feature_cols = [col for col in df.columns if col.startswith("feat")]
 
-    # ========== LEFT / RIGHT 类增强 ==========
+    # ========== LEFT / RIGHT class augmentation ==========
     left_df = df_orig[df_orig["Class"] == 1]
     right_df = df_orig[df_orig["Class"] == 3]
 
@@ -195,12 +196,12 @@ def do_data_augmentation_left_right(df, res, L):
 
     df_lr_aug = pd.DataFrame(augmented_lr)
 
-    # ========== 其余类保留 ==========
+    # ========== Keep other classes ==========
     keep_df = df_orig[df_orig["Class"].isin([4, 5])]  # front_left / front_right
 
-    # ========== 合并全部 ==========
+    # ========== Combine all ==========
     df_augmented = pd.concat([
-        df_orig[df_orig["Class"].isin([0, 1, 2, 3])],  # 原 front, left, right
+        df_orig[df_orig["Class"].isin([0, 1, 2, 3])],  # original front, left, right
         df_lr_aug,
         keep_df
     ], ignore_index=True)
@@ -210,24 +211,24 @@ def do_data_augmentation_left_right(df, res, L):
 
 def do_data_augmentation_front_none(df, res, L):
     """
-    一键完成数据增强：
-    - front (0)：镜像翻转
-    - none (2)：根据front增强量，下采样
-    - left (1) ↔ right (3)：互相翻转增强
-    - front_left / front_right：保留不变
+    Perform data augmentation in one step:
+    - front (0): mirror flip
+    - none (2): downsample based on front augmentation amount
+    - left (1) ↔ right (3): mutual flip augmentation
+    - front_left / front_right: keep unchanged
 
-    参数：
-        df (pd.DataFrame): 原始数据，含 feat 列和 Class 列
-        res (int): 每段分辨率
-        L (int): 时间段数
+    Args:
+        df (pd.DataFrame): Original data with feat columns and Class column
+        res (int): Resolution per segment
+        L (int): Number of time segments
 
-    返回：
-        df_augmented (pd.DataFrame): 增强后的新数据
+    Returns:
+        df_augmented (pd.DataFrame): Augmented data
     """
     df_orig = df.copy()
     feature_cols = [col for col in df.columns if col.startswith("feat")]
 
-    # ========== FRONT 类增强 ==========
+    # ========== FRONT class augmentation ==========
     front_df = df_orig[df_orig["Class"] == 0]
     # augmented_front = []
     #
@@ -241,7 +242,7 @@ def do_data_augmentation_front_none(df, res, L):
     #
     # df_front_aug = pd.DataFrame(augmented_front)
 
-    # ========== NONE 类下采样 ==========
+    # ========== NONE class downsampling ==========
     none_df = df_orig[df_orig["Class"] == 2]
     target_none_count = len(front_df) # * 2
 
@@ -250,12 +251,12 @@ def do_data_augmentation_front_none(df, res, L):
     else:
         df_none_down = none_df.copy()
 
-    # ========== 其余类保留 ==========
+    # ========== Keep other classes ==========
     keep_df = df_orig[df_orig["Class"].isin([4, 5])]  # front_left / front_right
 
-    # ========== 合并全部 ==========
+    # ========== Combine all ==========
     df_augmented = pd.concat([
-        df_orig[df_orig["Class"].isin([0, 1, 3])],  # 原 front, left, right
+        df_orig[df_orig["Class"].isin([0, 1, 3])],  # original front, left, right
         # df_front_aug,
         df_none_down,
         keep_df
@@ -270,9 +271,6 @@ def train_test_DNN(train_set, val_set, test_set, L, resolution, num_class, loc, 
     val_loader = DataLoader(val_set, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
     test_loader = DataLoader(test_set, batch_size=32, shuffle=False, num_workers=4, pin_memory=True)
     model = CNN(output_dim=num_class).to(device)
-    # model = MLP(L, resolution, 4).to(device)
-    # model = CNN(L, resolution, 4).to(device)
-    # model = CNN_CBAM().to(device)
 
     train_epoch(model, train_loader, val_loader, epoch)
 
@@ -336,18 +334,18 @@ def train_epoch(model, train_loader, val_loader, epoch, patience=20, save_path="
         val_losses.append(val_loss)
         val_accuracies.append(val_acc)
 
-        # ✅ Early stopping check
+        # Early stopping check
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             counter = 0
             torch.save(model.state_dict(), save_path)
-            print(f"🔄 Val Loss下降，保存模型（Val Loss = {val_loss:.4f}）")
+            print(f"Val Loss decreased, saving model (Val Loss = {val_loss:.4f})")
         else:
             counter += 1
-            print(f"⏳ 没有提升（{counter}/{patience}）")
+            print(f"No improvement ({counter}/{patience})")
 
         if counter >= patience:
-            print("⛔ 早停触发！训练提前结束。")
+            print("Early stopping triggered! Training stopped early.")
             plot_training_history(train_losses, val_losses, val_accuracies, output_path="training_plot.png")
             # break
             return True
@@ -404,13 +402,13 @@ def train_epoch_v2(model, train_loader, val_loader, epochs, patience=20, save_pa
             best_val_loss = val_loss
             patience_counter = 0
             torch.save(model.state_dict(), save_path)
-            print(f"\u2714\ufe0f 保存最佳模型，val_loss: {val_loss:.4f}")
+            print(f"\u2714\ufe0f Saved best model, val_loss: {val_loss:.4f}")
         else:
             patience_counter += 1
-            print(f"\u23f3 没有提升，耐心值：{patience_counter}/{patience}")
+            print(f"No improvement, patience: {patience_counter}/{patience}")
 
         if patience_counter >= patience:
-            print("\u274c 早停触发，停止训练！")
+            print("Early stopping triggered, stopping training!")
             plot_training_history(train_losses, val_losses, val_accuracies, output_path="training_plot.png")
             return True
 
@@ -419,7 +417,7 @@ def train_epoch_v2(model, train_loader, val_loader, epochs, patience=20, save_pa
 
 
 def validate_model(model, val_loader, criterion):
-    """计算 Validation Loss 和 Accuracy"""
+    """Calculate Validation Loss and Accuracy"""
     model.eval()
     val_loss = 0.0
     correct = 0
@@ -464,14 +462,14 @@ def test_model(model, test_loader):
 
 def plot_training_history(train_losses, val_losses, val_accuracies, output_path="training_plot.png"):
     """
-    绘制训练过程中的 Loss 和 Accuracy 曲线，并保存为图片
+    Plot training process Loss and Accuracy curves and save as image
     """
     epochs = list(range(1, len(train_losses) + 1))
 
     plt.figure(figsize=(12, 6))
 
     # -----------------------------
-    # 左图：训练/验证 Loss 曲线
+    # Left plot: Train/Val Loss curves
     # -----------------------------
     plt.subplot(1, 2, 1)
     plt.plot(epochs, train_losses, label="Train Loss", marker='o', linestyle='-')
@@ -483,7 +481,7 @@ def plot_training_history(train_losses, val_losses, val_accuracies, output_path=
     plt.grid(True)
 
     # -----------------------------
-    # 右图：验证 Accuracy 曲线
+    # Right plot: Validation Accuracy curve
     # -----------------------------
     plt.subplot(1, 2, 2)
     plt.plot(epochs, val_accuracies, label="Val Accuracy", color='green', marker='^', linestyle='-')
@@ -496,28 +494,28 @@ def plot_training_history(train_losses, val_losses, val_accuracies, output_path=
     plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
-    print(f"✅ 训练曲线已保存为：{output_path}")
+    print(f"Training curves saved as: {output_path}")
 
 
 def print_dataset_distribution(dataset, location_name, name):
     """
-    打印数据集中每个类别的数量和总样本数。
+    Print the number of samples for each class and total samples in the dataset.
 
-    参数:
-        dataset: GetPrecomputedData对象，具有 labels 属性。
-        location_name: 字符串，比如 'SA', 'SB', 'SAB'。
+    Args:
+        dataset: GetPrecomputedData object with labels attribute.
+        location_name: String, e.g. 'SA', 'SB', 'SAB'.
     """
     from collections import Counter
 
-    # 直接拿 labels tensor 并转成 list
+    # Get labels tensor and convert to list
     labels = dataset.labels.tolist()
 
-    # 统计每个类别数量
+    # Count samples per class
     counter = Counter(labels)
 
-    # 打印输出
+    # Print output
     print(f"-- {location_name}({name}) --")
-    print(f"  总样本数(after data augmentation): {len(dataset)}")
+    print(f"  Total samples (after data augmentation): {len(dataset)}")
     for class_id in range(6):
         count = counter.get(class_id, 0)
         class_name = {
@@ -535,7 +533,7 @@ def print_dataset_distribution_df(df, name):
     counter = Counter(df["Class"].tolist())
 
     print((f'{name}'))
-    print(f"  总样本数(before data augmentation): {len(df)}")
+    print(f"  Total samples (before data augmentation): {len(df)}")
     for class_id in range(6):
         count = counter.get(class_id, 0)
         class_name = {

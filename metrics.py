@@ -1,3 +1,4 @@
+# This file is modified from the original code of the paper.
 import numpy as np
 
 def getPCaccuracy(C):

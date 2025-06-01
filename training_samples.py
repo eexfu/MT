@@ -1,3 +1,4 @@
+# This file is modified from the original code of the paper.
 import os
 import re
 import sys
@@ -263,13 +264,13 @@ if __name__ == '__main__':
         parsed.geo = [str(i) for i in parsed.geo]
 
     if len(parsed.fmin) != len(parsed.fmax):
-        raise ValueError("Please make suer the length of fmin and fmax are the same")
+        raise ValueError("Please make sure the length of fmin and fmax are the same")
 
     if parsed.extract_feats:
         if parsed.input is None:
             raise ValueError("Please specify path to extracted one second audio samples at the flag --input.")
 
-        os.makedirs(parsed.save_path, exist_ok=True)  # 确保输出目录存在
+        os.makedirs(parsed.save_path, exist_ok=True)  # Ensure output directory exists
 
         if parsed.num_mics is not None:
             for i in range(len(parsed.L)):
@@ -377,11 +378,11 @@ if __name__ == '__main__':
 
                 results.append(result_entry)
 
-        # 保存为一个总表
+        # Save as a summary table
         save_path = os.path.join(parsed.root, "result/summary_results_SVM.csv")
         summary_df = pd.DataFrame(results)
         summary_df.to_csv(save_path, index=False)
-        print("✅ Saved summary_results_SVM.csv")
+        print("Saved summary_results_SVM.csv")
 
 
     if parsed.run_measure_CNN:
@@ -538,4 +539,4 @@ if __name__ == '__main__':
         df = pd.DataFrame(results)
         os.makedirs(os.path.join(parsed.root, "result"), exist_ok=True)
         df.to_csv(os.path.join(parsed.root, "result/learning_curve.csv"), index=False)
-        print("✅ Saved learning_curve.csv")
+        print("Saved learning_curve.csv")
