@@ -86,12 +86,13 @@ def line_accuracyVsL_by_location(df, location_name=None, filename_suffix="all"):
     plt.close()
 
 
-def bar_accuracyVsFreqRange(grouped, modelname):
+def bar_accuracyVsFreqRange(grouped, modelname, L=2, resolution=30, num_mics = 56, geo = 0, window_length = 1000):
+    grouped = grouped[(grouped['location'] == 'SAB') & (grouped['num_mics'] == num_mics) & (grouped['geo'] == geo) & (grouped['L'] == L) & (grouped['resolution'] == resolution) & (grouped['window_length'] == window_length)]
     # 📊 柱状图：不同 freq_range 的平均准确率
     bar_data = grouped.groupby('freq_range')['overall_accuracy_mean'].mean().reset_index()
 
     # 设置顺序
-    freq_order = ["20-50", "50-1500", "1500-3000"]
+    freq_order = ["20-50", "50-1500", "1500-3000", "3000-24000"]
     bar_data['freq_range'] = pd.Categorical(bar_data['freq_range'], categories=freq_order, ordered=True)
     bar_data = bar_data.sort_values('freq_range')
 
@@ -117,10 +118,9 @@ def bar_accuracyVsFreqRange(grouped, modelname):
     plt.close()
 
 
-def heatMap_freq50_1500_by_location(df, location_name=None, filename_suffix="all", modelname="SVM", fmin=50, fmax=1500):
+def heatMap_freq50_1500_by_location(df, location_name=None, filename_suffix="all", modelname="SVM", fmin=50, fmax=1500, num_mics=56, geo=0, window_length=1000):
     # 筛选 freq_range 为 50-1500 的数据
-    df = df[(df['fmin'] == fmin) & (df['fmax'] == fmax)]
-
+    df = df[(df['fmin'] == fmin) & (df['fmax'] == fmax) & (df['num_mics'] == num_mics) & (df['geo'] == geo) & (df['window_length'] == window_length) & (df['L'] != 1)]
     # 可选地筛选 location
     if location_name:
         df = df[df['location'] == location_name]
@@ -149,10 +149,9 @@ def heatMap_freq50_1500_by_location(df, location_name=None, filename_suffix="all
     plt.close()
 
 
-def plot_window_comparison_by_location(df, model):
+def plot_window_comparison_by_location(df, model, L=2, resolution=30, fmin = 50, fmax = 1500, num_mics = 56, geo = 0):
     # 筛选所需列
-    plot_df = df[df['fmin'] == 50]
-    plot_df = plot_df[plot_df['fmax'] == 1500]
+    plot_df = df[(df['fmin'] == fmin) & (df['fmax'] == fmax) & (df['num_mics'] == num_mics) & (df['geo'] == geo) & (df['L'] == L) & (df['resolution'] == resolution)].copy()
 
     # 保证窗口长度是数值类型并排序
     plot_df['window_length'] = pd.to_numeric(plot_df['window_length'], errors='coerce')
@@ -171,6 +170,45 @@ def plot_window_comparison_by_location(df, model):
         plt.grid(True)
         plt.tight_layout()
         plt.savefig(f'figures/accuracy_vs_window_{loc}_{model}.png')
+        plt.close()
+
+
+def plot_window_comparison_dual(df_svm, df_cnn, L=2, resolution=30, fmin=50, fmax=1500, num_mics=56, geo=0):
+    # 预处理两个模型的DataFrame
+    def preprocess(df, model_name):
+        df_filtered = df[
+            (df['fmin'] == fmin) & (df['fmax'] == fmax) &
+            (df['num_mics'] == num_mics) & (df['geo'] == geo) &
+            (df['L'] == L) & (df['resolution'] == resolution)
+            ].copy()
+        df_filtered['model'] = model_name
+        df_filtered['window_length'] = pd.to_numeric(df_filtered['window_length'], errors='coerce')
+        return df_filtered[['location', 'window_length', 'overall_accuracy_mean', 'model']]
+
+    df_svm_prep = preprocess(df_svm, 'SVM')
+    df_cnn_prep = preprocess(df_cnn, 'CNN')
+
+    # 合并两个DataFrame
+    combined_df = pd.concat([df_svm_prep, df_cnn_prep], ignore_index=True)
+
+    for loc in ['SAB', 'DAB']:
+        subset = combined_df[combined_df['location'] == loc]
+
+        plt.figure(figsize=(8, 5))
+        sns.lineplot(
+            data=subset,
+            x='window_length',
+            y='overall_accuracy_mean',
+            hue='model',
+            marker='o'
+        )
+        plt.title(f'Accuracy vs Window Length at {loc}\n(Freq range 50–1500Hz)')
+        plt.xlabel('Window Length (ms)')
+        plt.ylabel('Overall Accuracy')
+        plt.ylim(0, 1)
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(f'figures/accuracy_vs_window_{loc}_compare.png')
         plt.close()
 
 
@@ -488,16 +526,19 @@ def plot_confusion_matrix_from_csv(csv_path, title="Confusion Matrix", save_path
     plt.close()
 
 
-def plot_confusion_matrices(df, modelname, save_dir="./figures/conf_matrices", labels=["front", "left", "none", "right"]):
-    """
-    对 DataFrame 中每一行的混淆矩阵绘图并保存。
+def plot_confusion_matrices_mydata(df, modelname, num_class=4, save_dir="./figures/conf_matrices"):
+    '''
+    对 DataFrame 中每一行的混淆矩阵绘图并保存，自动根据文件名识别类别数并生成 labels。
 
     参数：
-        df (DataFrame): 包含 'conf_mat' 和可选 'filename' 列的 DataFrame。
+        df (DataFrame): 包含 'conf_mat'、'filename' 和可选 'location' 列的 DataFrame。
+        modelname (str): 模型名称，用于命名输出文件。
         save_dir (str): 输出图像保存的文件夹路径。
-    """
+    '''
+    df = df[(df['L'] == 2) & (df['resolution'] == 30) & (df['fmin'] == 50) & (df['fmax'] == 1500) & (df['num_class'] == num_class)]
     os.makedirs(save_dir, exist_ok=True)
-    class_names = labels
+
+    pattern = r"_L(\d+)_r(\d+)_f(\d+)-(\d+)_w(\d+)_pre(\d+)_post(\d+)_mid(\d+)_mw(\d+)_c(\d+)"
 
     for idx, row in df.iterrows():
         conf_raw = row["conf_mat"]
@@ -513,9 +554,37 @@ def plot_confusion_matrices(df, modelname, save_dir="./figures/conf_matrices", l
             print(f"[Row {idx}] Unsupported conf_mat type: {type(conf_raw)}")
             continue
 
-        # 归一化并转为百分比
-        conf_matrix_percent = conf_matrix.astype('float') / conf_matrix.sum(axis=1, keepdims=True)
-        conf_matrix_percent = np.around(conf_matrix_percent * 100, decimals=1)
+        if "filename" not in row or not isinstance(row["filename"], str):
+            print(f"[Row {idx}] Missing or invalid filename.")
+            continue
+
+        match = re.search(pattern, row["filename"])
+        if not match:
+            print(f"[Row {idx}] Filename pattern not matched.")
+            continue
+
+        try:
+            num_class = int(match.group(10))
+            if num_class < 4:
+                print(f"[Row {idx}] num_class too small: {num_class}")
+                continue
+
+            orig_class_names = ["front_1"] + ["left", "none", "right"] + [f"front_{i}" for i in range(num_class - 3) if i != 1]
+            if num_class == 6:
+                class_names = ["left", "none", "right", "front_0", "front_1", "front_2"]
+                reorder_indices = [1, 2, 3, 4, 0, 5]
+                conf_matrix = conf_matrix[reorder_indices, :][:, reorder_indices]
+            else:
+                class_names = orig_class_names
+
+        except Exception as e:
+            print(f"[Row {idx}] Error extracting class names: {e}")
+            continue
+
+        with np.errstate(invalid='ignore', divide='ignore'):
+            conf_matrix_percent = conf_matrix.astype('float') / conf_matrix.sum(axis=1, keepdims=True)
+            conf_matrix_percent = np.nan_to_num(conf_matrix_percent) * 100
+            conf_matrix_percent = np.around(conf_matrix_percent, decimals=1)
 
         fig, ax = plt.subplots(figsize=(8, 6))
         cax = ax.matshow(conf_matrix_percent, cmap="Blues", vmin=0, vmax=100)
@@ -532,17 +601,78 @@ def plot_confusion_matrices(df, modelname, save_dir="./figures/conf_matrices", l
         ax.set_xticklabels(class_names)
         ax.set_yticklabels(class_names)
 
-        plt.title(f"Confusion Matrix - {idx}")
+        plt.title("Confusion Matrix")
         plt.xlabel("Predicted Label")
         plt.ylabel("True Label")
         plt.tight_layout()
 
-        # 使用 filename（如存在）作为文件名的一部分
-        base_name = f"row{idx}"
-        if "filename" in row and isinstance(row["filename"], str):
-            base_name = os.path.splitext(os.path.basename(row["filename"]))[0]
+        base_name = os.path.splitext(os.path.basename(row["filename"]))[0]
+        location_part = row.get("location", "unknown")
+        save_path = os.path.join(save_dir, f"conf_mat_{base_name}_{location_part}_{modelname}.png")
+        plt.savefig(save_path, dpi=300)
+        print(f"Saved: {save_path}")
+        plt.close()
 
-        save_path = os.path.join(save_dir, f"conf_mat_{base_name}_{row["location"]}_{modelname}.png")
+
+def plot_confusion_matrices_samples(df, modelname, save_dir="./figures/conf_matrices"):
+    """
+    对 DataFrame 中每一行的混淆矩阵绘图并保存，自动根据文件名识别类别数并生成 labels。
+
+    参数：
+        df (DataFrame): 包含 'conf_mat'、'filename' 和可选 'location' 列的 DataFrame。
+        modelname (str): 模型名称，用于命名输出文件。
+        save_dir (str): 输出图像保存的文件夹路径。
+    """
+    df = df[(df['L'] == 2) & (df['resolution'] == 30) & (df['fmin'] == 50) & (df['fmax'] == 1500) & (df['window_length'] == 1000)]
+    os.makedirs(save_dir, exist_ok=True)
+
+    for idx, row in df.iterrows():
+        conf_raw = row["conf_mat"]
+        if isinstance(conf_raw, str):
+            try:
+                conf_matrix = np.array(ast.literal_eval(conf_raw))
+            except Exception as e:
+                print(f"[Row {idx}] Error parsing conf_mat: {e}")
+                continue
+        elif isinstance(conf_raw, list):
+            conf_matrix = np.array(conf_raw)
+        else:
+            print(f"[Row {idx}] Unsupported conf_mat type: {type(conf_raw)}")
+            continue
+
+        # 归一化为百分比
+        with np.errstate(invalid='ignore', divide='ignore'):
+            conf_matrix_percent = conf_matrix.astype('float') / conf_matrix.sum(axis=1, keepdims=True)
+            conf_matrix_percent = np.nan_to_num(conf_matrix_percent) * 100
+            conf_matrix_percent = np.around(conf_matrix_percent, decimals=1)
+
+        # 绘图
+        fig, ax = plt.subplots(figsize=(8, 6))
+        cax = ax.matshow(conf_matrix_percent, cmap="Blues", vmin=0, vmax=100)
+        fig.colorbar(cax, format='%d%%')
+
+        for i in range(conf_matrix_percent.shape[0]):
+            for j in range(conf_matrix_percent.shape[1]):
+                ax.text(j, i, f"{conf_matrix_percent[i, j]:.1f}%",
+                        ha="center", va="center",
+                        color="black" if conf_matrix_percent[i, j] < 70 else "white")
+
+        labels = ['front', 'left', 'none', 'right']
+
+        ax.set_xticks(np.arange(len(labels)))
+        ax.set_yticks(np.arange(len(labels)))
+        ax.set_xticklabels(labels)
+        ax.set_yticklabels(labels)
+
+        plt.title(f"Confusion Matrix")
+        plt.xlabel("Predicted Label")
+        plt.ylabel("True Label")
+        plt.tight_layout()
+
+        # 保存文件名
+        base_name = os.path.splitext(os.path.basename(row["filename"]))[0]
+        location_part = row.get("location", "unknown")
+        save_path = os.path.join(save_dir, f"conf_mat_{base_name}_{location_part}_{modelname}.png")
         plt.savefig(save_path, dpi=300)
         print(f"Saved: {save_path}")
         plt.close()
@@ -582,19 +712,140 @@ def plot_learning_curve(df, metric="overall_accuracy", save_path="figures/learni
     # plt.show()
 
 
+def line_accuracy_vs_num_class(df, location_name=None, filename_suffix="all"):
+    """
+    绘制 overall_accuracy_mean 随 num_class 变化的折线图。
+
+    参数:
+        df (DataFrame): 包含 num_class 和 overall_accuracy_mean 的 DataFrame。
+        location_name (str, 可选): 若指定，则仅绘制该 location 的数据。
+        filename_suffix (str): 保存图像时用作文件名后缀。
+    """
+    if location_name:
+        subset = df[df['location'] == location_name]
+        title_loc = location_name
+    else:
+        subset = df
+        title_loc = "All Locations"
+
+    # 按 num_class 计算平均准确率
+    grouped = subset.groupby("num_class")["overall_accuracy_mean"].mean().reset_index()
+
+    plt.figure(figsize=(8, 6))
+    ax = sns.lineplot(data=grouped, x="num_class", y="overall_accuracy_mean", marker="o")
+    plt.title(f"Overall Accuracy vs Number of Classes\n(Mean accuracy on {title_loc})")
+    plt.xlabel("Number of Classes")
+    plt.ylabel("Accuracy")
+    plt.ylim(0, 1)
+    plt.grid(True)
+
+    # 保存图像
+    os.makedirs("figures", exist_ok=True)
+    save_path = f"figures/lineplot_accuracy_vs_num_class_{filename_suffix}.png"
+    plt.tight_layout()
+    plt.savefig(save_path)
+    print(f"✅ Saved figure to {save_path}")
+    plt.close()
+
+
+def class_count():
+    # 读取CSV文件
+    df = pd.read_csv("./preprocess_mydata/thesis_mydata/metadata_samples_L2_r30_f50-1500_w100_pre100_post15_mid25_mw1000_c10.csv")
+
+    # 添加筛选条件，仅保留指定的Environment
+    target_envs = ['SA1', 'SA2', 'SB1', 'SB2', 'SB3']
+    df = df[df['Environment'].isin(target_envs)]
+
+    # 指定类别顺序与对应标签
+    custom_order = [1, 2, 3, 4, 5, 6, 0, 7, 8, 9]
+    class_labels = {
+        1: 'left',
+        2: 'none',
+        3: 'right',
+        4: 'front0',
+        5: 'front1',
+        6: 'front2',
+        0: 'front3',
+        7: 'front4',
+        8: 'front5',
+        9: 'front6'
+    }
+
+    # 统计每个类别的样本数量，并按照自定义顺序排序
+    class_counts = df['Class'].value_counts().reindex(custom_order, fill_value=0)
+    class_counts.index = [class_labels[i] for i in custom_order]  # 替换为字符串标签
+
+    # 输出统计结果
+    print("每个类别的样本数量：")
+    print(class_counts)
+
+    # 可视化绘图
+    plt.figure(figsize=(8, 5))
+    class_counts.plot(kind='bar')
+    plt.xlabel('Class')
+    plt.ylabel('Number of Samples')
+    plt.title('Number of Samples per Class')
+    plt.xticks(rotation=0)
+    plt.grid(axis='y')
+    plt.tight_layout()
+    plt.savefig('./figures/class_count.png')
+
+    # 示例：按Environment与Class组合统计样本数量
+    group_counts = df.groupby(['Environment', 'Class']).size().unstack(fill_value=0)
+    print(group_counts)
+
+
+
 if __name__ == '__main__':
-    svm_df = loadCSVData(path="./preprocess_test/result/summary_results_SVM.csv")
-    cnn_df = loadCSVData(path="./preprocess_test/result/summary_metrics_CNN.csv")
-    cnn_mydata_df = loadCSVData(path="./preprocess_mydata/test/summary_metrics.csv")
+    svm_4_class_df = loadCSVData(path="./preprocess_samples/features_samples/result/summary_results_SVM.csv")
+    cnn_4_class_df = loadCSVData(path="./preprocess_samples/features_samples/result/summary_metrics_CNN.csv")
+    cnn_multi_class_df = loadCSVData(path="./preprocess_mydata/thesis/summary_metrics.csv")
+
+    heatMap_freq50_1500_by_location(df=svm_4_class_df, location_name="SAB", filename_suffix="SVM_SAB", modelname="SVM")
+    heatMap_freq50_1500_by_location(df=cnn_4_class_df, location_name="SAB", filename_suffix="CNN_SAB", modelname="CNN")
+
+    bar_accuracyVsFreqRange(grouped=svm_4_class_df, modelname="SVM")
+    bar_accuracyVsFreqRange(grouped=cnn_4_class_df, modelname="CNN")
+
+    plot_window_comparison_dual(df_svm=svm_4_class_df, df_cnn=cnn_4_class_df)
+
+    line_accuracy_vs_num_class(df=cnn_multi_class_df, location_name="SAB", filename_suffix="SAB")
+
+    plot_confusion_matrices_samples(df=svm_4_class_df, modelname="SVM_4_Class")
+    plot_confusion_matrices_samples(df=cnn_4_class_df, modelname="CNN_4_Class")
+    plot_confusion_matrices_mydata(df=cnn_multi_class_df, modelname="CNN_mydata_4_Class", num_class=4)
+    plot_confusion_matrices_mydata(df=cnn_multi_class_df, modelname="CNN_mydata_6_Class", num_class=6)
+
+    class_count()
+
+    # plot_window_comparison_by_location(df=svm_4_class_df, model="SVM")
+    # plot_window_comparison_by_location(df=cnn_4_class_df, model="CNN")
+
+    # svm_df = loadCSVData(path="./preprocess_samples/result/summary_results_SVM_samples.csv")
+    # cnn_df = loadCSVData(path="./preprocess_samples/result/summary_metrics_CNN_samples.csv")
+    # svm_freq_df = loadCSVData(path="./preprocess_samples/current/freq/result/summary_results_SVM.csv")
+    # cnn_freq_df = loadCSVData(path="./preprocess_samples/current/freq/result/summary_metrics_CNN.csv")
+    # svm_window_df = loadCSVData(path="./preprocess_samples/current/window/result/summary_results_SVM.csv")
+    # cnn_window_df = loadCSVData(path="./preprocess_samples/current/window/result/summary_metrics_CNN.csv")
+    # cnn_mydata_df = loadCSVData(path="./preprocess_mydata/balanced/summary_metrics_balanced_CNN.csv")
+    # heavycnn_mydata_df = loadCSVData(path="./preprocess_mydata/balanced/summary_metrics_balanced_HeavyCNN.csv")
+    # cnn_mydata_unbalanced_df = loadCSVData(path="./preprocess_mydata/test/summary_metrics_unbalanced_100ms.csv")
+    # svm_mydata_df = loadCSVData(path="./preprocess_mydata/summary_metrics_SVM.csv")
     # learning_curve_df = loadCSVData(path="./preprocess_test/result/learning_curve.csv")
+
+    # accuracy vs num_class
+    # line_accuracy_vs_num_class(df=cnn_mydata_unbalanced_df, location_name='SAB', filename_suffix='SAB')
 
     # Learning Curve
     # plot_learning_curve(learning_curve_df, metric="overall_accuracy")
 
     # Confusion Matrices
+    # plot_confusion_matrices(df=cnn_mydata_df, modelname="CNN")
+    # plot_confusion_matrices(df=heavycnn_mydata_df, modelname="HeavyCNN")
+    # plot_confusion_matrices(df=cnn_mydata_unbalanced_df, modelname="CNN_Unbalanced")
     # plot_confusion_matrices(df=svm_df, modelname="SVM", labels=["front", "left", "none", "right"])
     # plot_confusion_matrices(df=cnn_df, modelname="CNN", labels=["front", "left", "none", "right"])
-    plot_confusion_matrices(df=cnn_mydata_df, modelname="CNN_mydata", labels=["front", "left", "none", "right", "front_left", "front_right"])
+    # plot_confusion_matrices(df=svm_mydata_df, modelname="SVM_mydata")
 
     # draw_model_comparison_bar(cnn_df, svm_df, filename="barplot_cnn_vs_svm.png", average=False, L=2, resolution=240, fmax=1500, fmin=50, location=None)
     # draw_model_comparison_bar(cnn_df, svm_df, filename="barplot_cnn_vs_svm_average_within_freq.png", average=False, L=None, resolution=None, fmax=1500, fmin=50, location=None)
@@ -625,8 +876,8 @@ if __name__ == '__main__':
     # # line_accuracyVsL_by_location(cnn_df, "SAB", "SAB")
     # # line_accuracyVsL_by_location(cnn_df, "DAB", "DAB")
 
-    # bar_accuracyVsFreqRange(cnn_df, "CNN")
-    # bar_accuracyVsFreqRange(svm_df, "SVM")
+    # bar_accuracyVsFreqRange(cnn_freq_df, "CNN")
+    # bar_accuracyVsFreqRange(svm_freq_df, "SVM")
 
     # # heatMap_freq50_1500_by_location(cnn_df, None, "all")
     # heatMap_freq50_1500_by_location(cnn_df, "SAB", "CNN_SAB", "CNN", 50, 1500)
@@ -645,5 +896,5 @@ if __name__ == '__main__':
     # plot_delta_histogram_by_class_separate()
 
     # Window Length
-    # plot_window_comparison_by_location(cnn_df, "CNN")
-    # plot_window_comparison_by_location(svm_df, "SVM")
+    # plot_window_comparison_by_location(cnn_window_df, "CNN")
+    # plot_window_comparison_by_location(svm_window_df, "SVM")

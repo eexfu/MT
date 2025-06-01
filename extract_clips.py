@@ -236,9 +236,6 @@ class AudioProcessor:
                         print(f"⚠️ 缺少检测文件: {json_path}")
                         continue
 
-                    with open(json_path, 'r') as f:
-                        json_data = json.load(f)
-
                     if end_sec <= t0_sec - 1:
                         class_id, class_name = 2, 'none'
                     elif start_sec >= t0_sec - self.mid_window_length/1000 and end_sec <= t0_sec:
@@ -250,7 +247,23 @@ class AudioProcessor:
                         if self.num_class == 4:
                             class_id, class_name = 0, 'front'
                         else:
-                            class_name, class_id = self.determine_front_subclass(car_boxes=car_boxes, image_width=self.image_width, num_class=self.num_class)
+                            match info['env']:
+                                case 'SA1':
+                                    image_width = 1264
+                                case 'SA2':
+                                    image_width = 1679
+                                case 'SB1':
+                                    image_width = 1285
+                                case 'SB2':
+                                    image_width = 1591
+                                case 'SB3':
+                                   image_width = 1407
+                                case _:
+                                    print("unknown wnv")
+                                    raise ValueError(f"Unknown env: {info['env']}")
+
+                            print(image_width)
+                            class_name, class_id = self.determine_front_subclass(car_boxes=car_boxes, image_width=image_width, num_class=self.num_class)
 
                     metadata.update({
                         "class_id": class_id,
